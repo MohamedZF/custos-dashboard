@@ -1,0 +1,49 @@
+name: Update dashboard
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # every 10 minutes (GitHub may start scheduled runs a few minutes late)
+  workflow_dispatch:          # "Run workflow" button for a manual refresh
+  push:
+    branches: [main]          # redeploy when the page or script changes
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Copy the page
+        run: mkdir -p _site && cp -r site/. _site/ && rm -rf _site/data
+
+      - name: Fetch the latest tag data from Field Signal
+        env:
+          FIELD_SIGNAL_PASSCODE: ${{ secrets.FIELD_SIGNAL_PASSCODE }}
+          OUT_DIR: _site/data
+        run: node scripts/update.mjs
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
