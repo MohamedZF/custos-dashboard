@@ -6,7 +6,7 @@ A password-protected website for Custos Sigfox tags: a homepage with a button fo
 site/index.html          homepage: one card per tag with its status, links to the tag's dashboard
 site/tag.html            a tag's dashboard (tag.html?id=SIGFOX_ID): charts, live OpenStreetMap map
 site/lock.js, common.css password lock and styles shared by both pages
-scripts/update.mjs       signs in to Field Signal, exports each tag's last 35 days, writes encrypted data
+scripts/update.mjs       signs in to Field Signal, exports each tag's last 31 days, writes encrypted data for the 24 h / 7 day / 30 day views
 .github/workflows/       runs the script every 10 minutes and deploys to GitHub Pages
 test/mock-server.mjs     a stand-in Field Signal for testing the script without the real site
 ```
@@ -44,9 +44,15 @@ Edit `TAGS` in `.github/workflows/update.yml`, one tag per line as `SIGFOX_ID=Na
           TAGS: |
             3B4D874=Custos 11.5SAC
             3B4D876=Custos 11-4 SAC
+            3A0C108=Custos 11.2BP
+            3B4D868=Custos 11.1 SAC
 ```
 
-Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the period shows on the homepage as "No messages" with no dashboard link.
+Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the past 30 days shows on the homepage as "No messages" with no dashboard link.
+
+## Time ranges
+
+Each dashboard has a **24 hours / 7 days / 30 days** switch. 24 hours shows the 24 whole hours up to now with hourly bars; 7 and 30 days show calendar days (SAST) up to today with daily bars. Every chart, figure, table and the map follow the chosen range, and the choice is remembered in the browser and in the page address (`tag.html?id=…&range=24h`). The homepage cards summarise the past 30 days.
 
 ## Other settings
 
@@ -55,7 +61,6 @@ Set these in the workflow's `env:` block:
 | Variable | Default | Meaning |
 |---|---|---|
 | `TAGS` | `3B4D874=Custos 11.5SAC` | Tags to publish, see above |
-| `DAYS` | `35` | How many days of history to include |
 | `FIELD_SIGNAL_URL` | the Field Signal site | Base URL |
 
 The "What the data shows" notes on each dashboard are worked out from that tag's data at every update (main sites, night-time site use, activity peaks), so they stay correct for any tag.

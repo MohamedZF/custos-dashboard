@@ -65,3 +65,11 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 #dash-root .lx-back { display: inline-block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-decoration: none; margin-bottom: 10px; }
 #dash-root .lx-back:hover { color: var(--color-fg); text-decoration: underline; }
 #dash-root .lx-interp-note { margin: -4px 0 8px; color: var(--color-fg-muted); }
+#dash-root .lx-range { display: inline-flex; margin-top: 14px; border: 1px solid var(--color-border-line); border-radius: 8px; overflow: hidden; background: var(--color-panel); }
+#dash-root .lx-range button { font: inherit; font-size: var(--cds-font-size-body); padding: 7px 14px; border: 0; background: transparent; color: var(--color-fg-muted); cursor: pointer; }
+#dash-root .lx-range button + button { border-left: 1px solid var(--color-border-line); }
+#dash-root .lx-range button[aria-pressed=true] { background: var(--color-fg); color: var(--color-bg); font-weight: 600; }
+#dash-root .lx-range button:hover:not([aria-pressed=true]) { color: var(--color-fg); }
+#dash-root .lx-range-empty { margin: 0; padding: 22px; color: var(--color-fg-muted); }
+#dash-root .lx.is-empty > *:not(.lx-head):not(#range-empty):not(footer) { display: none; }
+#dash-root .lx.is-empty .lx-range-dep { display: none; }

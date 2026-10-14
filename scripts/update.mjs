@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Fetches Custos tag data from Field Signal and writes the dashboard's data files.
-// Env: FIELD_SIGNAL_PASSCODE, SITE_PASSWORD (required), FIELD_SIGNAL_URL, TAGS, OUT_DIR, DAYS
+// Env: FIELD_SIGNAL_PASSCODE, SITE_PASSWORD (required), FIELD_SIGNAL_URL, TAGS, OUT_DIR
 // TAGS lists the tags to publish, one per line or separated by ';', as  DEVICE_ID=Display name
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -13,7 +13,8 @@ const TAGS = (process.env.TAGS || '3B4D874=Custos 11.5SAC').split(/[;\n]/).map(t
   const [id, ...n] = t.split('='); return { id: id.trim().toUpperCase(), name: (n.join('=').trim() || id.trim()) };
 });
 const OUT = process.env.OUT_DIR || '_site/data';
-const DAYS = Number(process.env.DAYS || 35);
+const DAYS = 31; // export window; the site shows the last 24 hours, 7 days and 30 days of it
+const RANGES = [{ key: '24h', label: 'Past 24 hours', hours: 24, bucket: 'hour' }, { key: '7d', label: 'Past 7 days', hours: 7 * 24, bucket: 'day' }, { key: '30d', label: 'Past 30 days', hours: 30 * 24, bucket: 'day' }];
 const UA = 'custos-dashboard-updater/1.0 (+GitHub Actions)';
 
 function fail(msg) { console.error('ERROR: ' + msg); if (process.env.GITHUB_ACTIONS) console.log('::error::' + msg); process.exit(1); }
@@ -78,13 +79,18 @@ async function exportCsv(cookie, DEV) {
 }
 
 // Same calculations as the Claude dashboard's refresh, so both show identical numbers.
-function compute(text, DEV, NAME) {
-  if (text.trim().split('\n').length < 2) return null;
+function parse(text) {
+  if (text.trim().split('\n').length < 2) return [];
   const rows = text.trim().split('\n').slice(1).map(l => l.replace(/\r$/, '').slice(1, -1).split('","'));
-  const P = rows.map(r => { const s = new Date(new Date(r[2]).getTime() + 2 * 3600e3); const iso = s.toISOString(); return {
+  return rows.map(r => { const s = new Date(new Date(r[2]).getTime() + 2 * 3600e3); const iso = s.toISOString(); return {
     sast: iso.slice(0, 16).replace('T', ' '), day: iso.slice(0, 10), hr: s.getUTCHours(), hk: iso.slice(0, 13), utc: r[2],
     seq: +r[5], lat: r[7] === '' ? null : +r[7], lon: r[8] === '' ? null : +r[8], hdop: +r[9], bat: +r[10], temp: +r[11], acc: +r[12], ttf: +r[13],
     r1: r[15] === '' ? null : +r[15], miss: +r[20] }; }).sort((a, b) => a.utc < b.utc ? -1 : 1);
+}
+
+// All figures for one time range. bucket 'hour' gives hourly bars in daily.csv (keys YYYY-MM-DDTHH:00), 'day' daily bars.
+function compute(P, DEV, NAME, bucket, span) {
+  if (!P.length) return null;
   const med = a => { if (!a.length) return ''; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
   const r2 = x => Math.round(x * 100) / 100;
@@ -104,10 +110,13 @@ function compute(text, DEV, NAME) {
     tower_readings_above_minus140: P.filter(p => p.r1 !== null && p.r1 > -140).length,
     latest_lat: last.lat === null ? '' : last.lat.toFixed(6), latest_lon: last.lon === null ? '' : last.lon.toFixed(6),
     latest_hdop: last.hdop, latest_temp_c: last.temp, latest_ttf_s: last.ttf };
-  const csv = (cols, data) => cols.join(',') + '\n' + data.map(r => cols.map(c => r[c] === null || r[c] === undefined ? '' : r[c]).join(',')).join('\n') + '\n';
+  const csv = (cols, data) => cols.join(',') + '\n' + data.map(r => cols.map(c => r[c] === null || r[c] === undefined ? '' : r[c]).join(',')).join('\n') + (data.length ? '\n' : '');
   const summary = csv(Object.keys(S), [S]);
-  const byDay = grp(P, 'day');
-  const days = []; for (let d = new Date(first.day + 'T00:00:00Z'); d <= new Date(last.day + 'T00:00:00Z'); d = new Date(d.getTime() + 86400e3)) days.push(d.toISOString().slice(0, 10));
+  const bk = bucket === 'hour' ? p => p.hk + ':00' : p => p.day;
+  const byDay = grp(P, bk);
+  const days = [];
+  const step = bucket === 'hour' ? 3600e3 : 86400e3;
+  for (let t = span.from; t < span.to; t += step) days.push(bucket === 'hour' ? new Date(t).toISOString().slice(0, 13) + ':00' : new Date(t).toISOString().slice(0, 10));
   const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum'],
     days.map(d => { const a = byDay.get(d) || []; if (!a.length) return { date: d, messages: 0, missing_before: 0, no_fix: 0, msgs_with_activity: 0, activity_sum: 0 };
       return { date: d, messages: a.length, missing_before: a.reduce((s, p) => s + p.miss, 0), no_fix: a.filter(p => !fix(p)).length,
@@ -135,18 +144,37 @@ const cookie = await signIn();
 await mkdir(OUT, { recursive: true });
 const generatedAt = new Date().toISOString();
 const index = [];
+const now = Date.now();
+// Windows in SAST-as-UTC milliseconds (the same shifted clock the tables use): 24 whole hours ending with the
+// current hour, or 7 / 30 calendar days ending today.
+const nowS = now + 2 * 3600e3;
+const windowFor = r => {
+  if (r.bucket === 'hour') { const end = Math.floor(nowS / 3600e3) * 3600e3 + 3600e3; return { from: end - r.hours * 3600e3, to: end }; }
+  const end = Math.floor(nowS / 86400e3) * 86400e3 + 86400e3; return { from: end - r.hours * 3600e3, to: end };
+};
+const iso = t => new Date(t).toISOString().slice(0, 16);
+const inWin = (p, w) => { const t = Date.parse(p.utc) + 2 * 3600e3; return t >= w.from && t < w.to; };
 for (const tag of TAGS) {
-  const r = compute(await exportCsv(cookie, tag.id), tag.id, tag.name);
-  if (!r) { console.log(`${tag.name} (${tag.id}): no messages in the last ${DAYS} days`); index.push({ id: tag.id, name: tag.name, messages: 0 }); continue; }
-  const { out, P, first, last } = r;
-  const S = Object.fromEntries(Object.entries(d3row(out['summary.csv'])));
+  const all = parse(await exportCsv(cookie, tag.id));
+  const ranges = {}, counts = [];
+  for (const r of RANGES) {
+    const w = windowFor(r);
+    const res = compute(all.filter(p => inWin(p, w)), tag.id, tag.name, r.bucket, w);
+    ranges[r.key] = { label: r.label, bucket: r.bucket, fromSast: iso(w.from), toSast: iso(w.to), messages: res ? res.P.length : 0, files: res ? res.out : null };
+    counts.push(`${r.key} ${res ? res.P.length : 0}`);
+  }
+  const w30 = windowFor(RANGES[2]);
+  const m = compute(all.filter(p => inWin(p, w30)), tag.id, tag.name, 'day', w30);
+  if (!m) { console.log(`${tag.name} (${tag.id}): no messages in the last 30 days`); index.push({ id: tag.id, name: tag.name, messages: 0 }); continue; }
+  const { P, first, last, out } = m;
+  const S = d3row(out['summary.csv']);
   index.push({ id: tag.id, name: tag.name, messages: P.length, first_message_sast: first.sast, last_message_sast: last.sast, last_message_utc: last.utc,
     delivery_pct: S.delivery_pct, battery_v_latest: S.battery_v_latest, gps_fixes: S.gps_fixes, temp_c_latest: last.temp, msgs_with_activity: S.msgs_with_activity });
-  const meta = { generatedAt, device: tag.id, name: tag.name, messages: P.length, firstMessageSast: first.sast, lastMessageSast: last.sast, days: DAYS };
-  await writeFile(join(OUT, `tag-${tag.id}.enc.json`), await encrypt({ meta, files: out }));
-  console.log(`${tag.name} (${tag.id}): ${P.length} messages, last ${last.sast} SAST`);
+  const meta = { generatedAt, device: tag.id, name: tag.name, lastMessageSast: last.sast, ranges: RANGES.map(r => r.key) };
+  await writeFile(join(OUT, `tag-${tag.id}.enc.json`), await encrypt({ meta, ranges }));
+  console.log(`${tag.name} (${tag.id}): ${counts.join(', ')} messages; last ${last.sast} SAST`);
 }
-const home = { generatedAt, days: DAYS, tags: index };
+const home = { generatedAt, days: 30, tags: index };
 await writeFile(join(OUT, 'tags.enc.json'), await encrypt(home));
 console.log(`Wrote encrypted data for ${index.length} tag(s) to ${OUT}`);
 

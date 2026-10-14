@@ -26,6 +26,7 @@
 #dash-root .hm-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ok); }
 #dash-root .hm-state.is-silent { color: var(--color-warn); } #dash-root .hm-state.is-silent i { background: var(--color-warn); }
 #dash-root .hm-state.is-none { color: var(--color-fg-muted); } #dash-root .hm-state.is-none i { background: var(--cds-chart-muted); }
+#dash-root .hm-span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: -4px 0 -6px; }
 #dash-root .hm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 0; }
 #dash-root .hm-stats div { display: flex; flex-direction: column; gap: 2px; }
 #dash-root .hm-stats dt { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
@@ -90,6 +91,7 @@
     return `<a class="hm-tag" href="tag.html?id=${encodeURIComponent(t.id)}">
       <div><h2>${esc(t.name)}</h2><span class="hm-id">Sigfox ${esc(t.id)}</span></div>
       ${state}
+      <p class="hm-span">Past ${esc(home.days)} days</p>
       <dl class="hm-stats">
         <div><dt>Last message</dt><dd>${esc(t.last_message_sast)}</dd></div>
         <div><dt>Delivery</dt><dd>${esc(t.delivery_pct)}%</dd></div>

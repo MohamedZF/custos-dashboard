@@ -42,6 +42,8 @@ jobs:
           TAGS: |
             3B4D874=Custos 11.5SAC
             3B4D876=Custos 11-4 SAC
+            3A0C108=Custos 11.2BP
+            3B4D868=Custos 11.1 SAC
         run: node scripts/update.mjs
 
       - uses: actions/configure-pages@v5

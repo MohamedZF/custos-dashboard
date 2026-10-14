@@ -109,20 +109,44 @@ window.dash = (() => {
     if (!payload) { ui.show(meta ? 'The password has changed. Enter the current password.' : null); return; }
     apply(payload, bundle);
   }
-  function apply(payload, bundle) {
+  const RANGES = ['24h', '7d', '30d'];
+  const parseIso = d3.utcParse('%Y-%m-%dT%H:%M');
+  let payload = null;
+  let range = (() => { const q = new URLSearchParams(location.search).get('range'); if (RANGES.includes(q)) return q; try { const v = localStorage.getItem('custos-range'); if (RANGES.includes(v)) return v; } catch (e) {} return '7d'; })();
+  function setRange(r) {
+    range = r;
+    try { localStorage.setItem('custos-range', r); } catch (e) {}
+    const u = new URL(location.href); u.searchParams.set('range', r); history.replaceState(null, '', u);
+    document.querySelectorAll('.lx-range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.range === r)));
+    if (!payload) return;
+    const R = payload.ranges[r] || { files: null, label: r };
+    for (const [id, f] of Object.entries(FILES)) store[id] = R.files && R.files[f] != null ? { status: 'ok', data: d3.csvParse(R.files[f]) } : { status: 'error', data: [] };
+    const unit = R.bucket === 'hour' ? 'hour' : 'day';
+    document.querySelectorAll('[data-unit]').forEach(e => { e.textContent = unit; });
+    document.querySelectorAll('[data-unit-cap]').forEach(e => { e.textContent = unit[0].toUpperCase() + unit.slice(1); });
+    const root = document.querySelector('#dash-root .lx'), empty = document.getElementById('range-empty');
+    root.classList.toggle('is-empty', !R.files);
+    empty.hidden = !!R.files;
+    if (!R.files) empty.textContent = `No messages from this tag in the ${R.label.toLowerCase()}. The last message arrived ${meta.lastMessageSast} SAST. Choose a longer range above.`;
+    if (typeof window.resetMap === 'function') window.resetMap();
+    fire();
+  }
+  function apply(p, bundle) {
     lastIv = bundle.iv;
-    for (const [id, f] of Object.entries(FILES)) store[id] = payload.files[f] != null ? { status: 'ok', data: d3.csvParse(payload.files[f]) } : { status: 'error', data: [] };
-    meta = payload.meta;
+    payload = p;
+    meta = p.meta;
     document.title = meta.name + ' · Custos tags';
     document.querySelectorAll('[data-meta=name]').forEach(e => { e.textContent = meta.name; });
     document.querySelectorAll('[data-meta=device]').forEach(e => { e.textContent = meta.device; });
     ui.hide();
-    fire();
+    setRange(range);
   }
   let ui;
   function start() {
     ui = CustosLock.mount({ content: document.querySelector('#dash-root .lx'), getBundle: async () => { if (!lastBundle) await load(); return lastBundle; }, onOpen: apply });
     document.getElementById('lock-eyebrow').textContent = TAG ? 'Sigfox tag ' + TAG : 'Custos tags';
+    document.querySelectorAll('.lx-range button').forEach(b => b.addEventListener('click', () => { if (b.dataset.range !== range) setRange(b.dataset.range); }));
+    document.querySelectorAll('.lx-range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.range === range)));
     return load();
   }
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fire, 200); });
@@ -133,7 +157,8 @@ window.dash = (() => {
     data, calc: (id, c) => { calcs[id] = c; },
     onData: fn => { cbs.push(fn); try { fn(); } catch (e) { console.error(e); } },
     colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'],
-    start, tag: TAG, meta: () => meta,
+    window: () => { const R = payload && payload.ranges[range]; return R && R.fromSast ? [parseIso(R.fromSast), parseIso(R.toSast)] : null; },
+    start, tag: TAG, meta: () => meta, bucket: () => (payload && payload.ranges[range] ? payload.ranges[range].bucket : 'day'),
   };
 })();
 </script>
@@ -159,13 +184,19 @@ window.dash = (() => {
   <header class="lx-head" id="top">
     <a class="lx-back" href="./">← All tags</a>
     <h1 data-meta="name">Custos tag</h1>
-    <p class="lx-take" id="takeaway">
+    <p class="lx-take lx-range-dep" id="takeaway">
       <span id="status-lead">Still reporting</span> (last message <b data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</b> SAST), but only
       <b data-source="summary" data-field="delivery_pct" data-row="0" class="dash-skeleton">—</b>% of expected messages arrived, and <b id="tower-text">—</b> carried a tower reading stronger than −140 dBm. Battery is at <b data-source="summary" data-field="battery_v_latest" data-row="0" class="dash-skeleton">—</b> V.
     </p>
-    <div class="lx-meta">Device <span data-source="summary" data-field="device_id" data-row="0" class="dash-skeleton">—</span> · <span data-source="summary" data-field="first_message_sast" data-row="0" class="dash-skeleton">—</span> to <span data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</span> SAST</div>
+    <div class="lx-meta lx-range-dep">Device <span data-source="summary" data-field="device_id" data-row="0" class="dash-skeleton">—</span> · <span data-source="summary" data-field="first_message_sast" data-row="0" class="dash-skeleton">—</span> to <span data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</span> SAST</div>
     <div class="lx-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading data…</span></span><button type="button" id="lock-again" class="lx-link-btn" data-lock-now>Lock</button></div>
+    <div class="lx-range" role="group" aria-label="Time range">
+      <button type="button" data-range="24h">24 hours</button>
+      <button type="button" data-range="7d">7 days</button>
+      <button type="button" data-range="30d">30 days</button>
+    </div>
   </header>
+  <p class="lx-card lx-range-empty" id="range-empty" hidden></p>
 
   <section class="lx-kpis" id="headline">
     <div class="lx-kpi">
@@ -203,8 +234,8 @@ window.dash = (() => {
   <h2 class="lx-sec" id="delivery">Message delivery</h2>
   <div class="lx-grid">
     <div class="lx-card">
-      <h3>Received vs missing, per day</h3>
-      <p class="lx-note">Missing counts are gaps in the Sigfox sequence number, credited to the day the next message arrived. Days with no bar received nothing.</p>
+      <h3>Received vs missing, per <span data-unit>day</span></h3>
+      <p class="lx-note">Missing counts are gaps in the Sigfox sequence number, credited to the <span data-unit>day</span> the next message arrived. <span data-unit-cap>Day</span>s with no bar received nothing.</p>
       <div class="lx-legend"><span><i class="lx-sw" id="sw-rec"></i>Received</span><span><i class="lx-sw" style="background: var(--cds-chart-status-critical)"></i>Missing</span></div>
       <div class="lx-chart" id="chart-daily" data-source="daily"></div>
     </div>
@@ -241,8 +272,8 @@ window.dash = (() => {
   <h2 class="lx-sec" id="gps">GPS and movement</h2>
   <div class="lx-grid">
     <div class="lx-card">
-      <h3>Messages without a GPS fix, per day</h3>
-      <p class="lx-note">Share of each day's messages with HDOP 99 or no coordinates. Time-to-fix hit the 64 s limit on <span data-source="summary" data-field="ttf_over_60s" data-row="0">—</span> messages; the median for fixed messages is <span data-source="summary" data-field="ttf_median_s" data-row="0">—</span> s.</p>
+      <h3>Messages without a GPS fix, per <span data-unit>day</span></h3>
+      <p class="lx-note">Share of each <span data-unit>day</span>'s messages with HDOP 99 or no coordinates. Time-to-fix hit the 64 s limit on <span data-source="summary" data-field="ttf_over_60s" data-row="0">—</span> messages; the median for fixed messages is <span data-source="summary" data-field="ttf_median_s" data-row="0">—</span> s.</p>
       <div class="lx-chart" id="chart-nofix" data-source="nofix_daily"></div>
     </div>
     <div class="lx-card">
@@ -372,6 +403,11 @@ const parseH = d3.utcParse('%Y-%m-%dT%H:%M');
 const parseD = d3.utcParse('%Y-%m-%d');
 const fDay = d3.utcFormat('%b %-d');
 const fDayH = d3.utcFormat('%b %-d, %H:00');
+const fHour = d3.utcFormat('%H:%M');
+const isHourly = () => dash.bucket() === 'hour';
+const parseK = k => k.length > 10 ? parseH(k) : parseD(k);
+const fKey = k => isHourly() ? fHour(parseK(k)) : fDay(parseK(k));
+const fKeyLong = k => isHourly() ? fDayH(parseK(k)) : fDay(parseK(k));
 const FAIL = '<div class="lx-fail"><i></i>Failed to load</div>';
 
 function prep(box, st) {
@@ -409,7 +445,7 @@ function lineChart(box, rows, opt) {
   const y = d3.scaleLinear(opt.yDomain || d3.extent(rows, d => d.y), [H - m.b, m.t]).nice();
   const yt = y.ticks(4);
   m.l = measure(svg, yt.map(opt.yFmt)) + 10;
-  const x = d3.scaleUtc(d3.extent(rows, d => d.x), [m.l, W - m.r]);
+  const xd = dash.window(); const x = d3.scaleUtc(xd || d3.extent(rows, d => d.x), [m.l, W - m.r]);
   svg.append('g').selectAll('line').data(yt).join('line')
     .attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d))
     .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
@@ -417,7 +453,7 @@ function lineChart(box, rows, opt) {
     .attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(opt.yFmt);
   const nx = Math.max(2, Math.floor((W - m.l) / 80));
   svg.append('g').attr('transform', `translate(0,${H - m.b})`)
-    .call(d3.axisBottom(x).ticks(nx).tickFormat(fDay).tickSizeOuter(0))
+    .call(d3.axisBottom(x).ticks(isHourly() ? d3.utcHour.every(Math.max(1, Math.ceil(24 / nx))) : nx).tickFormat(isHourly() ? fHour : fDay).tickSizeOuter(0))
     .attr('font-size', null).attr('font-family', null)
     .call(g => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'))
     .call(g => g.selectAll('.tick line').remove())
@@ -590,6 +626,7 @@ function interpret(fp, locs, hod) {
 }
 
 const mapState = { view: 'all', map: null, layer: null, views: {}, first: true };
+window.resetMap = () => { mapState.first = true; mapState.view = 'all'; mapState.views = {}; };
 const cssColor = v => { const m = /^var\((--[^)]+)\)$/.exec(v); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STAR = '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1 L12.4 7.2 L19 7.4 L13.8 11.4 L15.6 18 L10 14.2 L4.4 18 L6.2 11.4 L1 7.4 L7.6 7.2 Z" fill="#17201b"/></svg>';
@@ -656,8 +693,8 @@ dash.onData(() => {
     const rows = D.data.map(d => ({ k: d.date, rec: Number(d.messages), miss: Number(d.missing_before) }));
     barChart(boxD, rows, {
       stack: [{ key: 'rec', color: dash.colors[0] }, { key: 'miss', color: 'var(--cds-chart-status-critical)' }],
-      yFmt: d3.format(','), xFmt: k => fDay(parseD(k)),
-      tipHead: d => fDay(parseD(d.k)),
+      yFmt: d3.format(','), xFmt: fKey,
+      tipHead: d => fKeyLong(d.k),
       tip: d => [`Received ${fInt(d.rec)}`, `Missing ${fInt(d.miss)}`]
     });
   }
@@ -686,8 +723,8 @@ dash.onData(() => {
     const rows = NF.data.map(d => ({ k: d.date, v: Number(d.nofix_pct), n: d.messages, nf: d.no_fix, ttf: d.ttf_median }));
     barChart(boxN, rows, {
       stack: [{ key: 'v', color: dash.colors[2] }], yMax: 100,
-      yFmt: v => v + '%', xFmt: k => fDay(parseD(k)),
-      tipHead: d => fDay(parseD(d.k)),
+      yFmt: v => v + '%', xFmt: fKey,
+      tipHead: d => fKeyLong(d.k),
       tip: d => [`${d3.format('.1f')(d.v)}% without fix`, `${fInt(d.nf)} of ${fInt(d.n)} messages`, `Median TTF ${d.ttf} s`]
     });
   }
@@ -753,7 +790,9 @@ dash.onData(() => {
 
   // tables
   const G = dash.data('gaps');
-  fillTable(document.getElementById('tbl-gaps'), G.status, G.data, [
+  const gapRows = G.data.filter(r => r.from_sast);
+  const gw = document.getElementById('tbl-gaps'); gw.closest('.lx-card').querySelector('.lx-note').textContent = 'Gaps of more than 4.5 hours (270 min) between received messages, longest first.' + (G.status === 'ok' && !gapRows.length ? ' None in this period.' : '');
+  fillTable(gw, G.status, gapRows, [
     { k: 'from_sast' }, { k: 'to_sast' },
     { k: 'gap_minutes', num: true, f: v => fInt(Number(v)) },
     { k: 'seq_skipped', num: true, f: v => fInt(Number(v)) }

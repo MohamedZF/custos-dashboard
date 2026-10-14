@@ -5,14 +5,14 @@ const PASS = 'test-pass';
 const HDR = ['Device ID', 'Friendly name', 'Sigfox timestamp', 'Payload hour', 'Payload minute', 'Sequence number', 'Raw payload', 'Latitude', 'Longitude', 'HDOP', 'Battery voltage', 'Temperature', 'ACC', 'TTF', 'Tower 1 ID', 'Tower 1 RSSI', 'Tower 2 ID', 'Tower 2 RSSI', 'Tower 3 ID', 'Tower 3 RSSI', 'Missing messages before this message', 'Delivery percentage'];
 const q = v => '"' + String(v) + '"';
 
-const DEVS = { '3B4D874': ['Custos 11.5SAC', 7, 0], '3B4D876': ['Custos 11-4 SAC', 11, 0.06] };
+const DEVS = { '3B4D874': ['Custos 11.5SAC', 7, 0], '3B4D876': ['Custos 11-4 SAC', 11, 0.06], '3A0C108': ['Custos 11.2BP', 13, -0.03], '3B4D868': ['Custos 11.1 SAC', 17, 0.03, '2026-10-13T08:00:00Z'] };
 function csv(dev) {
   if (!DEVS[dev]) return HDR.map(q).join(',');
-  const [name, sd, shift] = DEVS[dev];
+  const [name, sd, shift, end = '2026-10-14T16:00:00Z'] = DEVS[dev];
   let seed = sd; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const lines = [HDR.map(q).join(',')];
   let t = Date.parse('2026-09-28T09:00:00Z'), seq = 67;
-  while (t < Date.parse('2026-10-14T16:00:00Z')) {
+  while (t < Date.parse(end)) {
     const sastH = (new Date(t).getUTCHours() + 2) % 24;
     const day = sastH >= 9 && sastH < 16;
     const site = day && rnd() < 0.6 ? [-26.1852 + shift, 28.00093 + shift] : [-26.14539 + shift, 27.9068 + shift];
