@@ -25,8 +25,12 @@ async function signIn() {
   const where = res.headers.get('location') || '';
   console.log(`Sign-in: HTTP ${res.status}${where ? ' -> ' + where : ''}; cookies set: ${cookies.map(c => c.split('=')[0]).join(', ') || 'none'}`);
   if (/error/i.test(where)) fail('Field Signal rejected the passcode. Check the FIELD_SIGNAL_PASSCODE secret (re-paste it with no extra spaces).');
-  if (!cookies.length) {
+  const session = cookies.filter(c => !/^(__cf_bm|cf_clearance|__cflb|_cfuvid)=/.test(c));
+  if (!session.length) {
     const text = await res.text().catch(() => '');
+    const msg = text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    console.log('Sign-in page says: ' + msg.slice(0, 300));
+    if (/incorrect|invalid|wrong|try again/i.test(msg)) fail('Field Signal rejected the passcode. Re-enter the FIELD_SIGNAL_PASSCODE secret.');
     if (/challenge-platform|cf-chl|Just a moment/i.test(text) || res.status === 403) fail(`Field Signal's Cloudflare protection blocked the sign-in (HTTP ${res.status}). The site owner needs to allow this client.`);
     fail(`Sign-in failed (HTTP ${res.status}). Check that FIELD_SIGNAL_PASSCODE is correct.`);
   }
