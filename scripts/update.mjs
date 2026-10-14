@@ -5,14 +5,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const BASE = (process.env.FIELD_SIGNAL_URL || 'https://field-signal-sigfox.johanm226618.chatgpt.site').replace(/\/$/, '');
-const PASSCODE = process.env.FIELD_SIGNAL_PASSCODE;
+const PASSCODE = (process.env.FIELD_SIGNAL_PASSCODE || '').trim();
 const DEV = process.env.DEVICE_ID || '3B4D874';
 const NAME = process.env.DEVICE_NAME || 'Custos 11.5SAC';
 const OUT = process.env.OUT_DIR || '_site/data';
 const DAYS = Number(process.env.DAYS || 35);
 const UA = 'custos-dashboard-updater/1.0 (+GitHub Actions)';
 
-function fail(msg) { console.error('ERROR: ' + msg); process.exit(1); }
+function fail(msg) { console.error('ERROR: ' + msg); if (process.env.GITHUB_ACTIONS) console.log('::error::' + msg); process.exit(1); }
 if (!PASSCODE) fail('FIELD_SIGNAL_PASSCODE is not set. Add it as a repository secret.');
 
 async function signIn() {
@@ -22,6 +22,9 @@ async function signIn() {
     body: new URLSearchParams({ passcode: PASSCODE }).toString(),
   });
   const cookies = (res.headers.getSetCookie ? res.headers.getSetCookie() : []).map(c => c.split(';')[0]).filter(Boolean);
+  const where = res.headers.get('location') || '';
+  console.log(`Sign-in: HTTP ${res.status}${where ? ' -> ' + where : ''}; cookies set: ${cookies.map(c => c.split('=')[0]).join(', ') || 'none'}`);
+  if (/error/i.test(where)) fail('Field Signal rejected the passcode. Check the FIELD_SIGNAL_PASSCODE secret (re-paste it with no extra spaces).');
   if (!cookies.length) {
     const text = await res.text().catch(() => '');
     if (/challenge-platform|cf-chl|Just a moment/i.test(text) || res.status === 403) fail(`Field Signal's Cloudflare protection blocked the sign-in (HTTP ${res.status}). The site owner needs to allow this client.`);
