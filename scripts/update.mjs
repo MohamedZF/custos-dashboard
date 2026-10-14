@@ -30,8 +30,8 @@ async function signIn() {
     const text = await res.text().catch(() => '');
     const msg = text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     console.log('Sign-in page says: ' + msg.slice(0, 300));
-    if (/incorrect|invalid|wrong|try again/i.test(msg)) fail('Field Signal rejected the passcode. Re-enter the FIELD_SIGNAL_PASSCODE secret.');
-    if (/challenge-platform|cf-chl|Just a moment/i.test(text) || res.status === 403) fail(`Field Signal's Cloudflare protection blocked the sign-in (HTTP ${res.status}). The site owner needs to allow this client.`);
+    if (/not accepted|incorrect|invalid|wrong|try again/i.test(msg)) fail('Field Signal rejected the passcode. Re-enter the FIELD_SIGNAL_PASSCODE secret.');
+    if (/cf-chl|Just a moment|Attention Required/i.test(text) || res.status === 403) fail(`Field Signal's Cloudflare protection blocked the sign-in (HTTP ${res.status}). The site owner needs to allow this client.`);
     fail(`Sign-in failed (HTTP ${res.status}). Check that FIELD_SIGNAL_PASSCODE is correct.`);
   }
   return cookies.join('; ');
