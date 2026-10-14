@@ -36,6 +36,7 @@ jobs:
       - name: Fetch the latest tag data from Field Signal
         env:
           FIELD_SIGNAL_PASSCODE: ${{ secrets.FIELD_SIGNAL_PASSCODE }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
           OUT_DIR: _site/data
         run: node scripts/update.mjs
 

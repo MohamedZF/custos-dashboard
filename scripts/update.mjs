@@ -3,9 +3,12 @@
 // Env: FIELD_SIGNAL_PASSCODE (required), FIELD_SIGNAL_URL, DEVICE_ID, DEVICE_NAME, OUT_DIR, DAYS
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { webcrypto as wc } from 'node:crypto';
 
 const BASE = (process.env.FIELD_SIGNAL_URL || 'https://field-signal-sigfox.johanm226618.chatgpt.site').replace(/\/$/, '');
 const PASSCODE = (process.env.FIELD_SIGNAL_PASSCODE || '').trim();
+const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
+const ALLOW_PUBLIC = process.env.ALLOW_PUBLIC === '1';
 const DEV = process.env.DEVICE_ID || '3B4D874';
 const NAME = process.env.DEVICE_NAME || 'Custos 11.5SAC';
 const OUT = process.env.OUT_DIR || '_site/data';
@@ -14,6 +17,21 @@ const UA = 'custos-dashboard-updater/1.0 (+GitHub Actions)';
 
 function fail(msg) { console.error('ERROR: ' + msg); if (process.env.GITHUB_ACTIONS) console.log('::error::' + msg); process.exit(1); }
 if (!PASSCODE) fail('FIELD_SIGNAL_PASSCODE is not set. Add it as a repository secret.');
+if (!SITE_PASSWORD && !ALLOW_PUBLIC) fail('SITE_PASSWORD is not set. Add it as a repository secret so the published data is encrypted.');
+
+// The page derives the same key from the visitor's password: PBKDF2-SHA256 (600k rounds) -> AES-256-GCM.
+// The salt is fixed per device so a browser that remembers the key keeps working across updates; the IV is random per publish.
+const KDF_ITERATIONS = 600000;
+async function encrypt(plaintext, password, device) {
+  const enc = new TextEncoder();
+  const salt = new Uint8Array(await wc.subtle.digest('SHA-256', enc.encode('custos-dashboard/v1/' + device))).slice(0, 16);
+  const base = await wc.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await wc.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: KDF_ITERATIONS }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const iv = wc.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await wc.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext)));
+  const b64 = u => Buffer.from(u).toString('base64');
+  return { v: 1, kdf: 'PBKDF2-SHA256', iterations: KDF_ITERATIONS, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+}
 
 async function signIn() {
   const res = await fetch(BASE + '/api/login', {
@@ -108,7 +126,13 @@ const csv = await exportCsv(cookie);
 const { out, P, first, last } = compute(csv);
 if (!P.length) fail('Export contained no messages for device ' + DEV);
 await mkdir(OUT, { recursive: true });
-for (const [name, content] of Object.entries(out)) await writeFile(join(OUT, name), content);
-const meta = { generatedAt: new Date().toISOString(), device: DEV, name: NAME, messages: P.length, firstMessageSast: first.sast, lastMessageSast: last.sast, source: BASE };
-await writeFile(join(OUT, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
-console.log(`Wrote ${Object.keys(out).length + 1} files to ${OUT}: ${P.length} messages, last ${last.sast} SAST`);
+const meta = { generatedAt: new Date().toISOString(), device: DEV, name: NAME, messages: P.length, firstMessageSast: first.sast, lastMessageSast: last.sast };
+if (SITE_PASSWORD) {
+  const bundle = await encrypt(JSON.stringify({ meta, files: out }), SITE_PASSWORD, DEV);
+  await writeFile(join(OUT, 'data.enc.json'), JSON.stringify(bundle) + '\n');
+  console.log(`Wrote encrypted data to ${OUT}/data.enc.json: ${P.length} messages, last ${last.sast} SAST`);
+} else {
+  for (const [name, content] of Object.entries(out)) await writeFile(join(OUT, name), content);
+  await writeFile(join(OUT, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+  console.log(`Wrote ${Object.keys(out).length + 1} unencrypted files to ${OUT} (ALLOW_PUBLIC=1): ${P.length} messages, last ${last.sast} SAST`);
+}

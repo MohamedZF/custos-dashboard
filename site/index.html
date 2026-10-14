@@ -58,6 +58,22 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 #dash-root .lx-north svg { display: block; fill: #17201b; font: 600 11px var(--font-anthropic-sans); }
 #dash-root .lx-site-label { font-family: var(--font-anthropic-sans); font-size: 12px; font-weight: 600; }
 #dash-root .lx-star svg { display: block; filter: drop-shadow(0 0 1.5px #fff); }
+#dash-root .lx-lock { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+#dash-root .lx-lock[hidden] { display: none; }
+#dash-root .lx-lock-card { width: min(400px, 100%); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: 12px; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--cds-shadow-popover); }
+#dash-root .lx-lock-card h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+#dash-root .lx-lock-eyebrow { margin: 0; font-size: var(--cds-font-size-caption); letter-spacing: .08em; text-transform: uppercase; color: var(--color-fg-muted); }
+#dash-root .lx-lock-lead { margin: 0 0 10px; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); line-height: 1.5; }
+#dash-root .lx-lock-card label { font-size: var(--cds-font-size-caption); font-weight: 500; }
+#dash-root .lx-lock-card input[type=password] { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--color-border-line); border-radius: 6px; background: var(--color-bg); color: var(--color-fg); }
+#dash-root .lx-lock-card input[type=password]:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+#dash-root .lx-lock-remember { display: flex; align-items: center; gap: 8px; font-weight: 400 !important; color: var(--color-fg-muted); }
+#dash-root .lx-lock-card button { font: inherit; font-weight: 600; margin-top: 6px; padding: 11px; border: 0; border-radius: 6px; background: var(--color-fg); color: var(--color-bg); cursor: pointer; }
+#dash-root .lx-lock-card button:disabled { opacity: .6; cursor: progress; }
+#dash-root [hidden] { display: none !important; }
+#dash-root .lx-lock-error { margin: 4px 0 0; color: var(--color-bad); font-size: var(--cds-font-size-caption); }
+#dash-root .lx-meta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#dash-root .lx-link-btn { font: inherit; font-size: var(--cds-font-size-caption); background: none; border: 0; padding: 0; color: var(--color-fg-muted); text-decoration: underline; cursor: pointer; }
 #dash-root footer { margin-top: var(--cds-gap-xl); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); line-height: 1.5; }
 #dash-root a { color: inherit; }
 #dash-root button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
@@ -119,12 +135,14 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 @media (max-width: 560px) { #dash-root .lx-hide-narrow { display: none; } }
 </style>
 <script>
-// Minimal stand-in for the Claude dashboard runtime: loads data/*.csv, recomputes calcs, redraws, refreshes every 10 minutes.
+// Minimal stand-in for the Claude dashboard runtime: loads the encrypted data bundle, decrypts it with the
+// visitor's password, recomputes calcs, redraws, and checks for new data every 10 minutes.
 window.dash = (() => {
   const FILES = { summary: 'summary.csv', daily: 'daily.csv', hourly: 'hourly.csv', hod: 'hour_of_day.csv', locations: 'locations_top10.csv', gaps: 'longest_gaps.csv', fix_points: 'fix_points.csv', track: 'track.csv' };
   const REFRESH_MS = 10 * 60 * 1000;
   const store = {}, calcs = {}, cbs = [];
-  let meta = null, lastLoad = 0;
+  const KEY_NAME = 'custos-dashboard-key';
+  let meta = null, lastLoad = 0, key = null, lastIv = null, lastBundle = null;
   const raw = id => store[id] || { status: 'loading', data: [] };
   function data(id) {
     const c = calcs[id];
@@ -145,19 +163,67 @@ window.dash = (() => {
   }
   async function load() {
     lastLoad = Date.now();
-    const v = Date.now();
-    const m = await fetch('data/meta.json?v=' + v, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
-    if (meta && m && m.generatedAt === meta.generatedAt) { showStatus(); return; }
-    await Promise.all(Object.entries(FILES).map(async ([id, f]) => {
-      try {
-        const r = await fetch('data/' + f + '?v=' + v, { cache: 'no-store' });
-        if (!r.ok) throw new Error(r.status);
-        store[id] = { status: 'ok', data: d3.csvParse(await r.text()) };
-      } catch (e) { if (!store[id] || store[id].status !== 'ok') store[id] = { status: 'error', data: [] }; }
-    }));
-    if (m) meta = m;
+    let bundle;
+    try {
+      const r = await fetch('data/data.enc.json?v=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      bundle = await r.json();
+    } catch (e) { lock.show(meta ? null : 'The dashboard data could not be loaded. Try again in a few minutes.'); return; }
+    lastBundle = bundle;
+    if (bundle.iv === lastIv) { showStatus(); return; }
+    if (!key) key = await lock.storedKey();
+    if (!key) { lock.show(); return; }
+    try { apply(await decrypt(bundle, key)); lastIv = bundle.iv; }
+    catch (e) { key = null; lock.forget(); lock.show('That password no longer unlocks the data. Enter the current password.'); }
+  }
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function deriveKey(password, bundle) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: b64(bundle.salt), iterations: bundle.iterations }, base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+  }
+  async function decrypt(bundle, k) {
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(bundle.iv) }, k, b64(bundle.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  function apply(payload) {
+    for (const [id, f] of Object.entries(FILES)) store[id] = payload.files[f] != null ? { status: 'ok', data: d3.csvParse(payload.files[f]) } : { status: 'error', data: [] };
+    meta = payload.meta;
+    lock.hide();
     fire();
   }
+  async function unlock(password, remember) {
+    if (!lastBundle) await load();
+    if (!lastBundle) return 'The dashboard data could not be loaded. Try again in a few minutes.';
+    let k, payload;
+    try { k = await deriveKey(password, lastBundle); payload = await decrypt(lastBundle, k); } catch (e) { return 'That password didn’t unlock the dashboard.'; }
+    key = k; lastIv = lastBundle.iv;
+    await lock.remember(k, remember);
+    apply(payload);
+    return null;
+  }
+  const lock = {
+    el: () => document.getElementById('lock'),
+    show(msg) {
+      const l = this.el(); if (!l) return;
+      document.querySelector('#dash-root .lx').hidden = true; l.hidden = false;
+      const e = document.getElementById('lock-error'); e.textContent = msg || ''; e.hidden = !msg;
+      const i = document.getElementById('lock-password'); if (i && document.activeElement !== i) i.focus();
+    },
+    hide() { const l = this.el(); if (l) l.hidden = true; document.querySelector('#dash-root .lx').hidden = false; },
+    async remember(k, persist) {
+      const raw = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey('raw', k))));
+      try { sessionStorage.setItem(KEY_NAME, raw); } catch (e) {}
+      try { if (persist) localStorage.setItem(KEY_NAME, raw); else localStorage.removeItem(KEY_NAME); } catch (e) {}
+    },
+    async storedKey() {
+      let raw = null;
+      try { raw = sessionStorage.getItem(KEY_NAME) || localStorage.getItem(KEY_NAME); } catch (e) {}
+      if (!raw) return null;
+      try { return await crypto.subtle.importKey('raw', b64(raw), 'AES-GCM', true, ['decrypt']); } catch (e) { return null; }
+    },
+    forget() { try { sessionStorage.removeItem(KEY_NAME); localStorage.removeItem(KEY_NAME); } catch (e) {} },
+  };
+  function lockNow() { key = null; lastIv = null; lock.forget(); location.reload(); }
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fire, 200); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastLoad > REFRESH_MS / 2) load(); });
   setInterval(load, REFRESH_MS);
@@ -166,7 +232,7 @@ window.dash = (() => {
     data, calc: (id, c) => { calcs[id] = c; },
     onData: fn => { cbs.push(fn); try { fn(); } catch (e) { console.error(e); } },
     colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'],
-    start: load,
+    start: load, unlock, lockNow,
   };
 })();
 </script>
@@ -174,15 +240,29 @@ window.dash = (() => {
 <body>
 <div id="dash-root">
 
-<div class="lx">
+<main id="lock" class="lx-lock">
+  <form id="lock-form" class="lx-lock-card" autocomplete="on">
+    <p class="lx-lock-eyebrow">Sigfox tag 3B4D874</p>
+    <h1>Custos 11.5SAC</h1>
+    <p class="lx-lock-lead">This dashboard is password protected. Enter the password to view the tag's health and movement.</p>
+    <input type="text" name="username" value="custos-dashboard" autocomplete="username" hidden>
+    <label for="lock-password">Password</label>
+    <input id="lock-password" name="password" type="password" autocomplete="current-password" required>
+    <label class="lx-lock-remember"><input id="lock-remember" type="checkbox"> Remember on this device</label>
+    <button id="lock-submit" type="submit">Unlock</button>
+    <p id="lock-error" class="lx-lock-error" role="alert" hidden></p>
+  </form>
+</main>
+
+<div class="lx" hidden>
   <header class="lx-head" id="top">
     <h1>Custos 11.5SAC</h1>
     <p class="lx-take" id="takeaway">
-      Still reporting (last message <b data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</b> SAST), but only
+      <span id="status-lead">Still reporting</span> (last message <b data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</b> SAST), but only
       <b data-source="summary" data-field="delivery_pct" data-row="0" class="dash-skeleton">—</b>% of expected messages arrived, and <b id="tower-text">—</b> carried a tower reading stronger than −140 dBm. Battery is at <b data-source="summary" data-field="battery_v_latest" data-row="0" class="dash-skeleton">—</b> V.
     </p>
     <div class="lx-meta">Device <span data-source="summary" data-field="device_id" data-row="0" class="dash-skeleton">—</span> · <span data-source="summary" data-field="first_message_sast" data-row="0" class="dash-skeleton">—</span> to <span data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</span> SAST</div>
-    <div class="lx-meta"><span class="lx-status"><i></i><span id="updated">Loading data…</span></span></div>
+    <div class="lx-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading data…</span></span><button type="button" id="lock-again" class="lx-link-btn">Lock</button></div>
   </header>
 
   <section class="lx-kpis" id="headline">
@@ -629,6 +709,12 @@ dash.onData(() => {
     el.textContent = (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v)) ? v : (Number.isFinite(n) && Math.abs(n) >= 1000 ? fInt(n) : String(v));
   });
 
+  const lead = document.getElementById('status-lead');
+  if (lead && S.status === 'ok' && S.data.length) {
+    const lastUtc = Date.parse(S.data[0].last_message_sast.replace(' ', 'T') + ':00+02:00');
+    const h = (Date.now() - lastUtc) / 3600e3;
+    lead.textContent = h > 2 ? `Silent for ${h >= 48 ? Math.floor(h / 24) + ' days' : Math.floor(h) + ' h'}` : 'Still reporting';
+  }
   const tt = document.getElementById('tower-text');
   if (tt) { if (S.status === 'ok' && S.data.length) { const n = Number(S.data[0].tower_readings_above_minus140); tt.textContent = n === 0 ? 'no message' : `${fInt(n)} messages`; tt.classList.remove('dash-skeleton'); } else tt.textContent = '—'; }
 
@@ -746,6 +832,16 @@ dash.onData(() => {
     { k: 'mean_lat', num: true, narrow: true }, { k: 'mean_lon', num: true, narrow: true }
   ]);
 });
+
+document.getElementById('lock-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const btn = document.getElementById('lock-submit'), pw = document.getElementById('lock-password'), err = document.getElementById('lock-error');
+  btn.disabled = true; btn.textContent = 'Unlocking…'; err.hidden = true;
+  const msg = await dash.unlock(pw.value, document.getElementById('lock-remember').checked);
+  btn.disabled = false; btn.textContent = 'Unlock';
+  if (msg) { err.textContent = msg; err.hidden = false; pw.select(); } else { pw.value = ''; err.textContent = ''; }
+});
+document.getElementById('lock-again').addEventListener('click', () => dash.lockNow());
 
 dash.start();
 </script>

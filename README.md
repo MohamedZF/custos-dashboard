@@ -1,6 +1,6 @@
 # Custos 11.5SAC dashboard
 
-A public web page showing the health, message delivery and movement of Sigfox tag **Custos 11.5SAC (3B4D874)**. A GitHub Actions job signs in to Field Signal every 10 minutes, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
+A password-protected web page showing the health, message delivery and movement of Sigfox tag **Custos 11.5SAC (3B4D874)**. A GitHub Actions job signs in to Field Signal every 10 minutes, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
 
 ```
 site/index.html          the page (charts, live OpenStreetMap map, reloads its data every 10 min)
@@ -12,9 +12,10 @@ test/mock-server.mjs     a stand-in Field Signal for testing the script without 
 ## Set up (about 5 minutes)
 
 1. **Create a repository** on GitHub, for example `custos-dashboard`, and add these files to it.
-   GitHub Pages on a free account needs the repository to be **public**. The passcode stays private (step 2), but the published page and its data can be opened by anyone who has the link.
-2. **Store the passcode as a secret.** In the repository: *Settings → Secrets and variables → Actions → New repository secret*.
-   Name: `FIELD_SIGNAL_PASSCODE`. Value: the Field Signal passcode.
+   GitHub Pages on a free account needs the repository to be **public**. The secrets below stay private, and the published data is encrypted.
+2. **Add two repository secrets.** In the repository: *Settings → Secrets and variables → Actions → New repository secret*.
+   - `FIELD_SIGNAL_PASSCODE`: the Field Signal passcode.
+   - `SITE_PASSWORD`: a password of your choosing. Viewers type this to open the dashboard.
 3. **Turn on Pages.** *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
 4. **Run it once.** *Actions → Update dashboard → Run workflow*. When the run finishes (about a minute), the page is live at
    `https://<your-github-username>.github.io/<repository-name>/`.
@@ -27,7 +28,9 @@ After that it updates by itself every 10 minutes.
 - **If an update fails** (wrong passcode, Field Signal down), the previous page stays online and GitHub emails you about the failed run. The run log explains the cause in one line.
 - **Cloudflare.** Field Signal sits behind Cloudflare. If Cloudflare ever blocks GitHub's servers, the run fails with a message saying so; the Field Signal owner can allow the client in Cloudflare.
 - **60-day rule.** GitHub pauses scheduled workflows in public repositories after 60 days without any commits. GitHub emails a warning first; re-enable it with one click under *Actions*, or push any small change.
-- **Privacy.** The page shows the tag's GPS positions and is public. It is marked `noindex` so search engines skip it, but anyone with the link can view it. Don't use this setup for a tag on an animal whose location must stay private.
+- **Password.** The script encrypts all data (AES-256-GCM, key from `SITE_PASSWORD` via PBKDF2-SHA256, 600,000 rounds) before publishing, and the page decrypts it in the browser. Without the password, the published files are unreadable; only the page layout is public. Use a long password (four or more random words), because someone who downloads the encrypted file can try passwords offline. "Remember on this device" stores the derived key in the browser until you press **Lock**.
+- **Changing the password.** Update the `SITE_PASSWORD` secret and run the workflow. Anyone who ticked "Remember on this device" is asked for the new password.
+- **No password.** If `SITE_PASSWORD` is missing, the run fails instead of publishing location data openly. To publish without a password on purpose, set `ALLOW_PUBLIC: '1'` in the workflow's `env:` block.
 - **Map.** The background map loads live from OpenStreetMap (© OpenStreetMap contributors).
 
 ## Change the tag or the time range
@@ -40,6 +43,7 @@ Set these in the workflow's `env:` block:
 | `DEVICE_NAME` | `Custos 11.5SAC` | Name shown in the data |
 | `DAYS` | `35` | How many days of history to include |
 | `FIELD_SIGNAL_URL` | the Field Signal site | Base URL |
+| `ALLOW_PUBLIC` | unset | `1` publishes unencrypted data when no `SITE_PASSWORD` is set |
 
 The page's heading and interpretation notes are written for 11.5SAC; edit `site/index.html` if you point it at another tag.
 
@@ -48,11 +52,11 @@ The page's heading and interpretation notes are written for 11.5SAC; edit `site/
 ```bash
 # test against the stand-in server (no passcode needed)
 node test/mock-server.mjs &
-FIELD_SIGNAL_URL=http://localhost:8787 FIELD_SIGNAL_PASSCODE=test-pass OUT_DIR=site/data node scripts/update.mjs
-python3 -m http.server -d site 8000      # then open http://localhost:8000
+FIELD_SIGNAL_URL=http://localhost:8787 FIELD_SIGNAL_PASSCODE=test-pass SITE_PASSWORD=test OUT_DIR=site/data node scripts/update.mjs
+python3 -m http.server -d site 8000      # open http://localhost:8000, password: test
 
 # or against the real site
-FIELD_SIGNAL_PASSCODE='…' OUT_DIR=site/data node scripts/update.mjs
+FIELD_SIGNAL_PASSCODE='…' SITE_PASSWORD='…' OUT_DIR=site/data node scripts/update.mjs
 ```
 
 Needs Node.js 20 or newer.
