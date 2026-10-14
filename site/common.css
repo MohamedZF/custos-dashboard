@@ -77,3 +77,4 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 #dash-root .hm-tabs a { padding: 8px 14px; margin-bottom: -1px; font-size: var(--cds-font-size-body); color: var(--color-fg-muted); text-decoration: none; border-bottom: 2px solid transparent; }
 #dash-root .hm-tabs a:hover { color: var(--color-fg); }
 #dash-root .hm-tabs a[aria-current=page] { color: var(--color-fg); font-weight: 600; border-bottom-color: var(--color-fg); }
+#dash-root .lx-sec-note { margin: -10px 0 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; max-width: 60rem; }

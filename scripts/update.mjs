@@ -91,6 +91,15 @@ function parse(text) {
 // All figures for one time range. bucket 'hour' gives hourly bars in daily.csv (keys YYYY-MM-DDTHH:00), 'day' daily bars.
 function compute(P, DEV, NAME, bucket, span) {
   if (!P.length) return null;
+  // GPS quality. HDOP is whole numbers, 99 = no fix. TTF statistics use fixed messages only, because the
+  // value reported on a failed attempt depends on the tag's firmware timeout (64 s on most, 0 or 119 s on some).
+  const pctl = (a, q) => { if (!a.length) return ''; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
+  const HDOP_BINS = [['Excellent (0–1)', h => h <= 1], ['Good (2–4)', h => h >= 2 && h <= 4], ['Moderate (5–9)', h => h >= 5 && h <= 9], ['Poor (10+)', h => h >= 10 && h !== 99]];
+  const TTF_BINS = [['0–4 s', 0, 5], ['5–9 s', 5, 10], ['10–19 s', 10, 20], ['20–29 s', 20, 30], ['30–44 s', 30, 45], ['45–64 s', 45, 65], ['65 s +', 65, 1e9]];
+  const gpsq = a => { const f = a.filter(fix); return {
+    hdop_median: med(f.map(p => p.hdop)), hdop_mean: f.length ? r2(avg(f.map(p => p.hdop))) : '',
+    hdop_excellent_pct: f.length ? Math.round(f.filter(p => p.hdop <= 1).length / f.length * 1000) / 10 : '',
+    ttf_mean_s: f.length ? Math.round(avg(f.map(p => p.ttf)) * 10) / 10 : '', ttf_p90_s: pctl(f.map(p => p.ttf), 0.9), ttf_max_fixed_s: f.length ? Math.max(...f.map(p => p.ttf)) : '' }; };
   const med = a => { if (!a.length) return ''; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
   const r2 = x => Math.round(x * 100) / 100;
@@ -103,7 +112,8 @@ function compute(P, DEV, NAME, bucket, span) {
     device_id: DEV, name: NAME, messages: P.length, first_message_sast: first.sast, last_message_sast: last.sast,
     seq_first: first.seq, seq_last: last.seq, missing_messages: expected - P.length, expected_messages: expected,
     delivery_pct: Math.round(P.length / expected * 1000) / 10, gps_fixes: fixes.length, no_fix: P.length - fixes.length,
-    ttf_median_s: med(fixes.map(p => p.ttf)), ttf_over_60s: P.filter(p => p.ttf > 60).length,
+    ttf_median_s: med(fixes.map(p => p.ttf)), ttf_over_60s: P.filter(p => p.ttf > 60).length, ...gpsq(P),
+    no_fix_ttf_median_s: med(P.filter(p => !fix(p)).map(p => p.ttf)),
     battery_v_latest: last.bat, battery_v_min: Math.min(...P.map(p => p.bat)), battery_v_max: Math.max(...P.map(p => p.bat)),
     temp_c_avg: r2(avg(P.map(p => p.temp))), temp_c_min: Math.min(...P.map(p => p.temp)), temp_c_max: Math.max(...P.map(p => p.temp)),
     msgs_with_activity: P.filter(p => p.acc > 0).length, activity_sum: P.reduce((s, p) => s + p.acc, 0),
@@ -117,26 +127,31 @@ function compute(P, DEV, NAME, bucket, span) {
   const days = [];
   const step = bucket === 'hour' ? 3600e3 : 86400e3;
   for (let t = span.from; t < span.to; t += step) days.push(bucket === 'hour' ? new Date(t).toISOString().slice(0, 13) + ':00' : new Date(t).toISOString().slice(0, 10));
-  const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum'],
+  const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum', 'hdop_median', 'hdop_mean', 'hdop_excellent_pct', 'ttf_mean_s', 'ttf_p90_s'],
     days.map(d => { const a = byDay.get(d) || []; if (!a.length) return { date: d, messages: 0, missing_before: 0, no_fix: 0, msgs_with_activity: 0, activity_sum: 0 };
       return { date: d, messages: a.length, missing_before: a.reduce((s, p) => s + p.miss, 0), no_fix: a.filter(p => !fix(p)).length,
         battery_v_avg: r2(avg(a.map(p => p.bat))), battery_v_min: Math.min(...a.map(p => p.bat)), battery_v_max: Math.max(...a.map(p => p.bat)),
         temp_c_avg: r2(avg(a.map(p => p.temp))), temp_c_min: Math.min(...a.map(p => p.temp)), temp_c_max: Math.max(...a.map(p => p.temp)),
-        ttf_s_median_fixed: med(a.filter(fix).map(p => p.ttf)), msgs_with_activity: a.filter(p => p.acc > 0).length, activity_sum: a.reduce((s, p) => s + p.acc, 0) }; }));
+        ttf_s_median_fixed: med(a.filter(fix).map(p => p.ttf)), msgs_with_activity: a.filter(p => p.acc > 0).length, activity_sum: a.reduce((s, p) => s + p.acc, 0), ...gpsq(a) }; }));
   const hourly = csv(['hour_sast', 'messages', 'battery_v_avg', 'temp_c_avg', 'acc_sum', 'no_fix'],
     [...grp(P, 'hk')].map(([h, a]) => ({ hour_sast: h + ':00', messages: a.length, battery_v_avg: r2(avg(a.map(p => p.bat))), temp_c_avg: r2(avg(a.map(p => p.temp))), acc_sum: a.reduce((s, p) => s + p.acc, 0), no_fix: a.filter(p => !fix(p)).length })));
-  const hod = csv(['hour_sast', 'messages', 'temp_c_avg', 'activity_sum'],
-    Array.from({ length: 24 }, (_, h) => { const a = P.filter(p => p.hr === h); return { hour_sast: h, messages: a.length, temp_c_avg: a.length ? r2(avg(a.map(p => p.temp))) : '', activity_sum: a.reduce((s, p) => s + p.acc, 0) }; }));
+  const hod = csv(['hour_sast', 'messages', 'temp_c_avg', 'activity_sum', 'fixes', 'ttf_median_s', 'hdop_mean'],
+    Array.from({ length: 24 }, (_, h) => { const a = P.filter(p => p.hr === h), f = a.filter(fix); return { hour_sast: h, messages: a.length, temp_c_avg: a.length ? r2(avg(a.map(p => p.temp))) : '', activity_sum: a.reduce((s, p) => s + p.acc, 0), fixes: f.length, ttf_median_s: med(f.map(p => p.ttf)), hdop_mean: f.length ? r2(avg(f.map(p => p.hdop))) : '' }; }));
+  const gps_quality = csv(['kind', 'bin', 'count', 'pct'], [
+    ...HDOP_BINS.map(([bin, t]) => { const c = P.filter(p => fix(p) && t(p.hdop)).length; return { kind: 'hdop', bin, count: c, pct: Math.round(c / P.length * 1000) / 10 }; }),
+    { kind: 'hdop', bin: 'No fix', count: P.length - fixes.length, pct: Math.round((P.length - fixes.length) / P.length * 1000) / 10 },
+    ...TTF_BINS.map(([bin, lo, hi]) => { const c = fixes.filter(p => p.ttf >= lo && p.ttf < hi).length; return { kind: 'ttf', bin, count: c, pct: fixes.length ? Math.round(c / fixes.length * 1000) / 10 : 0 }; }),
+  ]);
   const loc = new Map(); fixes.forEach(p => { const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3); if (!loc.has(k)) loc.set(k, { k, n: 0, first: p.sast, last: p.sast, la: 0, lo: 0 }); const o = loc.get(k); o.n++; o.last = p.sast; o.la += p.lat; o.lo += p.lon; });
   const locations = 'grid_cell,fixes,first_seen_sast,last_seen_sast,mean_lat,mean_lon\n' + [...loc.values()].sort((a, b) => b.n - a.n).slice(0, 10)
     .map(o => `"${o.k}",${o.n},${o.first},${o.last},${+(o.la / o.n).toFixed(6)},${+(o.lo / o.n).toFixed(6)}`).join('\n') + '\n';
   const gl = []; for (let i = 1; i < P.length; i++) { const g = Math.round((new Date(P[i].utc) - new Date(P[i - 1].utc)) / 60000); if (g > 270) gl.push({ gap_minutes: g, from_sast: P[i - 1].sast, to_sast: P[i].sast, seq_from: P[i - 1].seq, seq_to: P[i].seq, seq_skipped: P[i].seq - P[i - 1].seq - 1 }); }
   const gaps = csv(['gap_minutes', 'from_sast', 'to_sast', 'seq_from', 'seq_to', 'seq_skipped'], gl.sort((a, b) => b.gap_minutes - a.gap_minutes).slice(0, 10));
-  const cell = new Map(); fixes.forEach(p => { const w = win(p.hr); const k = p.lat.toFixed(4) + ',' + p.lon.toFixed(4) + ',' + w; if (!cell.has(k)) cell.set(k, { la: 0, lo: 0, n: 0, a: 0, w }); const o = cell.get(k); o.la += p.lat; o.lo += p.lon; o.n++; o.a += p.acc; });
-  const fix_points = 'lat,lon,window,fixes,acc_sum\n' + [...cell.values()].map(o => `${(o.la / o.n).toFixed(5)},${(o.lo / o.n).toFixed(5)},${o.w},${o.n},${o.a}`).join('\n') + '\n';
+  const cell = new Map(); fixes.forEach(p => { const w = win(p.hr); const k = p.lat.toFixed(4) + ',' + p.lon.toFixed(4) + ',' + w; if (!cell.has(k)) cell.set(k, { la: 0, lo: 0, n: 0, a: 0, h: 0, t: 0, w }); const o = cell.get(k); o.la += p.lat; o.lo += p.lon; o.n++; o.a += p.acc; o.h += p.hdop; o.t += p.ttf; });
+  const fix_points = 'lat,lon,window,fixes,acc_sum,hdop_mean,ttf_mean_s\n' + [...cell.values()].map(o => `${(o.la / o.n).toFixed(5)},${(o.lo / o.n).toFixed(5)},${o.w},${o.n},${o.a},${r2(o.h / o.n)},${Math.round(o.t / o.n)}`).join('\n') + '\n';
   const tr = []; let prev = null; fixes.forEach(p => { const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3); if (k !== prev) { tr.push(`${p.sast},${p.lat.toFixed(5)},${p.lon.toFixed(5)},${win(p.hr)}`); prev = k; } });
   const track = 'time_sast,lat,lon,window\n' + tr.join('\n') + '\n';
-  const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track };
+  const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track, 'gps_quality.csv': gps_quality };
   return { out, P, first, last };
 }
 

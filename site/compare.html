@@ -115,6 +115,14 @@
           <option value="fixrate">GPS fix rate over time</option>
           <option value="map">GPS positions on a map</option>
         </optgroup>
+        <optgroup label="GPS quality">
+          <option value="ttf">Time to fix over time</option>
+          <option value="ttfdist">Time-to-fix distribution</option>
+          <option value="ttfhod">Time to fix by hour of day</option>
+          <option value="hdop">HDOP over time</option>
+          <option value="hdopdist">HDOP distribution</option>
+          <option value="hdophod">HDOP by hour of day</option>
+        </optgroup>
         <optgroup label="Activity">
           <option value="hod">Activity by hour of day</option>
           <option value="rose">Daily activity profile (polar)</option>
@@ -369,6 +377,32 @@
       .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
   }
 
+  // Categories on the x axis, one bar per tag side by side. series: [{ name, color, vals: [{ v, n }] }]
+  function groupedBars(box, cats, series, o) {
+    box.innerHTML = '';
+    const W = Math.max(300, box.clientWidth), H = 300, m = { t: 12, r: 10, b: 30, l: 0 };
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const y = d3.scaleLinear([0, d3.max(series, s => d3.max(s.vals, d => d.v)) || 1], [H - m.b, m.t]).nice();
+    const yt = y.ticks(5);
+    m.l = measure(svg, yt.map(o.yFmt)) + 12;
+    const x = d3.scaleBand(cats, [m.l, W - m.r]).paddingInner(0.22).paddingOuter(0.1);
+    const xi = d3.scaleBand(series.map((s, i) => i), [0, x.bandwidth()]).padding(0.08);
+    svg.append('g').selectAll('line').data(yt).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick').attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(o.yFmt);
+    svg.append('g').selectAll('text').data(cats).join('text').attr('class', 'lx-tick').attr('x', d => x(d) + x.bandwidth() / 2).attr('y', H - 10).attr('text-anchor', 'middle').text(d => (o.catFmt || String)(d));
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+    series.forEach((s, i) => svg.append('g').selectAll('rect').data(s.vals).join('rect')
+      .attr('x', (d, j) => x(cats[j]) + xi(i)).attr('width', xi.bandwidth()).attr('y', d => y(d.v)).attr('height', d => y(0) - y(d.v)).attr('rx', 2).attr('fill', s.color));
+    const tip = tipOf(box);
+    svg.append('g').selectAll('rect').data(cats).join('rect').attr('x', d => x(d)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointerenter', function (ev, c) {
+        d3.select(this).attr('fill', 'var(--cds-chart-grid)'); const j = cats.indexOf(c);
+        setTip(tip, o.head(c), series.map(s => ({ color: s.color, text: `${s.name}: ${o.tipFmt(s.vals[j])}` })));
+        const sc = box.clientWidth / W; placeTip(tip, box, (x(c) + x.bandwidth()) * sc, 60);
+      })
+      .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
+  }
+
   function rose(box, rows, max, color) {
     box.innerHTML = '';
     const W = Math.max(260, box.clientWidth), S = Math.min(W, 340), H = S, R = S / 2 - 30;
@@ -409,7 +443,12 @@
           ['Missing messages', t => fInt(S(t).missing_messages), t => +S(t).missing_messages, 'min'],
           ['GPS fixes', t => fInt(S(t).gps_fixes)],
           ['GPS fix rate', t => f1(S(t).gps_fixes / S(t).messages * 100) + '%', t => S(t).gps_fixes / S(t).messages, 'max'],
+          ['No-fix messages', t => fInt(S(t).no_fix), t => +S(t).no_fix, 'min'],
           ['Median time to fix', t => S(t).ttf_median_s === '' ? '—' : S(t).ttf_median_s + ' s', t => n(S(t).ttf_median_s), 'min'],
+          ['Mean time to fix', t => S(t).ttf_mean_s === '' || S(t).ttf_mean_s == null ? '—' : S(t).ttf_mean_s + ' s', t => n(S(t).ttf_mean_s), 'min'],
+          ['90% of fixes within', t => S(t).ttf_p90_s === '' || S(t).ttf_p90_s == null ? '—' : S(t).ttf_p90_s + ' s', t => n(S(t).ttf_p90_s), 'min'],
+          ['Mean HDOP', t => S(t).hdop_mean === '' || S(t).hdop_mean == null ? '—' : f2(S(t).hdop_mean), t => n(S(t).hdop_mean), 'min'],
+          ['Fixes with excellent HDOP (≤1)', t => S(t).hdop_excellent_pct === '' || S(t).hdop_excellent_pct == null ? '—' : S(t).hdop_excellent_pct + '%', t => n(S(t).hdop_excellent_pct), 'max'],
           ['Battery now', t => S(t).battery_v_latest + ' V'],
           ['Lowest battery', t => S(t).battery_v_min + ' V', t => +S(t).battery_v_min, 'max'],
           ['Temperature, avg', t => f1(S(t).temp_c_avg) + ' °C'],
@@ -507,6 +546,64 @@
         }).forEach(({ t, rows, box }) => rose(box, rows, max, t.color));
       },
     },
+    ttf: {
+      title: ctx => `Time to fix per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: ctx => `Median time to fix of the messages that got a GPS fix, for each ${ctx.hourly ? 'hour' : 'day'}. Lower means faster fixes and less battery used. Hover for the mean and 90th percentile.`,
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `median ${t.F.summary[0].ttf_median_s} s overall`));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => n(d.ttf_s_median_fixed)) })),
+          lineOpts(ctx, { yFmt: v => v + ' s', gap: ctx.hourly ? 1.5 * 3600e3 : 1.5 * 86400e3, tol: ctx.hourly ? 0.6 * 3600e3 : 0.6 * 86400e3, yDomain: [0, (d3.max(ctx.tags.flatMap(t => t.F.daily.map(d => n(d.ttf_s_median_fixed)).filter(Number.isFinite))) || 10) * 1.1], tipFmt: d => `median ${d.y} s, mean ${d.d.ttf_mean_s} s, 90% ≤ ${d.d.ttf_p90_s} s` }));
+      },
+    },
+    ttfdist: {
+      title: ctx => `Time-to-fix distribution, ${ctx.label}`,
+      note: () => 'Share of each tag\'s fixed messages in each time-to-fix band. Bars further left mean faster fixes.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `${fInt(t.F.summary[0].gps_fixes)} fixes`));
+        const rowsOf = t => t.F.gps_quality.filter(d => d.kind === 'ttf');
+        const cats = rowsOf(ctx.tags[0]).map(d => d.bin);
+        groupedBars(chartBox(card), cats, ctx.tags.map(t => ({ name: t.name, color: t.color, vals: rowsOf(t).map(d => ({ v: +d.pct, n: +d.count })) })),
+          { yFmt: v => v + '%', head: c => 'Time to fix ' + c, tipFmt: d => `${f1(d.v)}% (${fInt(d.n)} fixes)` });
+      },
+    },
+    ttfhod: {
+      title: ctx => `Time to fix by hour of day, ${ctx.label}`,
+      note: () => 'Median time to fix of fixed messages in each hour of the day (SAST), across the whole range.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: t.F.hour_of_day.map(d => ({ x: +d.hour_sast, y: n(d.ttf_median_s), d })) })),
+          { hod: true, yFmt: v => v + ' s', gap: 1.5, tol: 0.5, head: h => `${String(h).padStart(2, '0')}:00 SAST`, yDomain: [0, (d3.max(ctx.tags.flatMap(t => t.F.hour_of_day.map(d => n(d.ttf_median_s)).filter(Number.isFinite))) || 10) * 1.1], tipFmt: d => `median ${d.y} s (${fInt(d.d.fixes)} fixes)` });
+      },
+    },
+    hdop: {
+      title: ctx => `HDOP per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: ctx => `Mean HDOP of fixed messages for each ${ctx.hourly ? 'hour' : 'day'}. Lower is more precise: 0–1 excellent, 2–4 good, 5–9 moderate, 10+ poor.`,
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `mean ${f2(t.F.summary[0].hdop_mean)} overall`));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => n(d.hdop_mean)) })),
+          lineOpts(ctx, { yFmt: v => f1(v), gap: ctx.hourly ? 1.5 * 3600e3 : 1.5 * 86400e3, tol: ctx.hourly ? 0.6 * 3600e3 : 0.6 * 86400e3, yDomain: [0, Math.max(2, (d3.max(ctx.tags.flatMap(t => t.F.daily.map(d => n(d.hdop_mean)).filter(Number.isFinite))) || 2) * 1.1)], tipFmt: d => `mean ${f2(d.y)}, ${d.d.hdop_excellent_pct}% excellent` }));
+      },
+    },
+    hdopdist: {
+      title: ctx => `HDOP distribution, ${ctx.label}`,
+      note: () => 'Share of each tag\'s messages in each HDOP band, with messages that got no fix on the right.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `${fInt(t.F.summary[0].messages)} messages`));
+        const rowsOf = t => t.F.gps_quality.filter(d => d.kind === 'hdop');
+        const cats = rowsOf(ctx.tags[0]).map(d => d.bin);
+        groupedBars(chartBox(card), cats, ctx.tags.map(t => ({ name: t.name, color: t.color, vals: rowsOf(t).map(d => ({ v: +d.pct, n: +d.count })) })),
+          { yFmt: v => v + '%', catFmt: c => c.replace(/ \(.*\)/, ''), head: c => c === 'No fix' ? 'No fix' : 'HDOP ' + c, tipFmt: d => `${f1(d.v)}% (${fInt(d.n)} messages)` });
+      },
+    },
+    hdophod: {
+      title: ctx => `HDOP by hour of day, ${ctx.label}`,
+      note: () => 'Mean HDOP of fixed messages in each hour of the day (SAST), across the whole range.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: t.F.hour_of_day.map(d => ({ x: +d.hour_sast, y: n(d.hdop_mean), d })) })),
+          { hod: true, yFmt: v => f1(v), gap: 1.5, tol: 0.5, head: h => `${String(h).padStart(2, '0')}:00 SAST`, yDomain: [0, Math.max(2, (d3.max(ctx.tags.flatMap(t => t.F.hour_of_day.map(d => n(d.hdop_mean)).filter(Number.isFinite))) || 2) * 1.1)], tipFmt: d => `mean ${f2(d.y)} (${fInt(d.d.fixes)} fixes)` });
+      },
+    },
     map: {
       title: ctx => `GPS positions, ${ctx.label}`,
       note: () => 'Each tag in its own colour. Fixes at the same spot are merged and dot size shows how many; thin lines are each tag\'s movement track. Hover a dot for details.',
@@ -530,7 +627,7 @@
           t.F.fix_points.slice().sort((a, b) => b.fixes - a.fixes).forEach(d => {
             const ll = [+d.lat, +d.lon]; bounds.push(ll);
             L.circleMarker(ll, { radius: rN(+d.fixes), color: '#ffffff', weight: 1, fillColor: col, fillOpacity: 0.8 })
-              .bindTooltip(`<b>${esc(t.name)}</b> · ${esc(d.window)}<br>${(+d.lat).toFixed(5)}, ${(+d.lon).toFixed(5)}<br>${fInt(+d.fixes)} fix${+d.fixes === 1 ? '' : 'es'} · ACC sum ${fInt(+d.acc_sum)}`, { direction: 'top', offset: [0, -4] })
+              .bindTooltip(`<b>${esc(t.name)}</b> · ${esc(d.window)}<br>${(+d.lat).toFixed(5)}, ${(+d.lon).toFixed(5)}<br>${fInt(+d.fixes)} fix${+d.fixes === 1 ? '' : 'es'} · ACC sum ${fInt(+d.acc_sum)}${d.hdop_mean ? `<br>HDOP avg ${esc(d.hdop_mean)} · TTF avg ${esc(d.ttf_mean_s)} s` : ''}`, { direction: 'top', offset: [0, -4] })
               .addTo(map);
           });
         });
