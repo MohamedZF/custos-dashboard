@@ -453,7 +453,7 @@ function lineChart(box, rows, opt) {
     .attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(opt.yFmt);
   const nx = Math.max(2, Math.floor((W - m.l) / 80));
   svg.append('g').attr('transform', `translate(0,${H - m.b})`)
-    .call(d3.axisBottom(x).ticks(isHourly() ? d3.utcHour.every(Math.max(1, Math.ceil(24 / nx))) : nx).tickFormat(isHourly() ? fHour : fDay).tickSizeOuter(0))
+    .call(d3.axisBottom(x).tickValues((() => { const [a, b] = x.domain(), span = (b - a) / (isHourly() ? 3600e3 : 86400e3); const iv = (isHourly() ? d3.utcHour : d3.utcDay).every(Math.max(1, Math.ceil(span / nx))); return iv.range(a, b).filter(t => (b - t) > (b - a) * 0.03); })()).tickFormat(isHourly() ? fHour : fDay).tickSizeOuter(0))
     .attr('font-size', null).attr('font-family', null)
     .call(g => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'))
     .call(g => g.selectAll('.tick line').remove())

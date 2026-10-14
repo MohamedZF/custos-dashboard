@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Compare tags · Custos tags</title>
+<meta name="description" content="Compare Custos Sigfox tags side by side.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="common.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="lock.js"></script>
+<style>
+#dash-root .cp { display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+#dash-root .cp h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 6px; }
+#dash-root .cp-lead { margin: 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); line-height: 1.5; max-width: 46rem; }
+#dash-root .cp-meta { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: 8px; }
+#dash-root .lx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+#dash-root .cp-controls { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) auto; gap: 18px 24px; align-items: start; }
+@media (max-width: 860px) { #dash-root .cp-controls { grid-template-columns: 1fr; } }
+#dash-root .cp-step { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#dash-root .cp-step > span { font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--color-fg-muted); letter-spacing: .02em; }
+#dash-root .cp-step > span b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--color-fg); color: var(--color-bg); font-size: 11px; margin-right: 6px; }
+#dash-root .cp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+#dash-root .cp-chip { font: inherit; font-size: var(--cds-font-size-body); display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--color-border-line); border-radius: 999px; background: var(--color-panel); color: var(--color-fg-muted); cursor: pointer; }
+#dash-root .cp-chip i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--c); }
+#dash-root .cp-chip[aria-pressed=true] { color: var(--color-fg); border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); font-weight: 500; }
+#dash-root .cp-chip[aria-pressed=true] i { background: var(--c); }
+#dash-root .cp-chip:disabled { opacity: .45; cursor: not-allowed; }
+#dash-root .cp-hint { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+#dash-root select { font: inherit; font-size: var(--cds-font-size-body); padding: 8px 10px; border: 1px solid var(--color-border-line); border-radius: 6px; background: var(--color-panel); color: var(--color-fg); width: 100%; }
+#dash-root select:focus-visible, #dash-root .cp-chip:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+#dash-root .cp-step .lx-range { margin-top: 0; }
+#dash-root .cp-empty { margin: 0; padding: 36px 22px; text-align: center; color: var(--color-fg-muted); }
+#dash-root .cp-out h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+#dash-root .lx-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 4px 0 14px; line-height: 1.45; }
+#dash-root .cp-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 10px; font-size: var(--cds-font-size-caption); }
+#dash-root .cp-legend span { display: inline-flex; align-items: center; gap: 7px; }
+#dash-root .cp-legend i { width: 14px; height: 3px; border-radius: 2px; background: var(--c); }
+#dash-root .cp-legend i.dot { width: 10px; height: 10px; border-radius: 50%; }
+#dash-root .cp-legend a { color: inherit; }
+#dash-root .cp-legend em { font-style: normal; color: var(--color-fg-muted); }
+#dash-root .cp-multi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .cp-multi .lx-card { border-top: 3px solid var(--c); }
+#dash-root .cp-multi h3 { font-size: var(--cds-font-size-body); font-weight: 600; margin: 0; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+#dash-root .cp-multi h3 small { font-weight: 400; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+#dash-root .cp-missing { font-size: var(--cds-font-size-caption); color: var(--color-warn); margin: 0 0 10px; }
+#dash-root .lx-chart { position: relative; min-height: 200px; }
+#dash-root .lx-tick { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: 4px 8px; font-size: var(--cds-font-size-caption); white-space: nowrap; display: none; z-index: 500; font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip .lx-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+#dash-root .lx-tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+#dash-root .cp-map { height: 520px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; }
+#dash-root .cp-map .leaflet-container { font-family: var(--font-anthropic-sans); }
+#dash-root .lx-tbl-wrap { overflow-x: auto; }
+#dash-root table.cp-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+#dash-root table.cp-tbl th, #dash-root table.cp-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--color-border-line); text-align: right; white-space: nowrap; }
+#dash-root table.cp-tbl th:first-child, #dash-root table.cp-tbl td:first-child { text-align: left; color: var(--color-fg-muted); white-space: normal; }
+#dash-root table.cp-tbl thead th { font-weight: 600; border-bottom: 2px solid var(--c, var(--color-border-line)); }
+#dash-root table.cp-tbl td.best { font-weight: 600; }
+#dash-root .cp-loading { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 30px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="dash-root">
+
+<main id="lock" class="lx-lock">
+  <form id="lock-form" class="lx-lock-card" autocomplete="on">
+    <p class="lx-lock-eyebrow">Custos tags</p>
+    <h1>Compare tags</h1>
+    <p class="lx-lock-lead">These dashboards are password protected. Enter the password to compare tags.</p>
+    <input type="text" name="username" value="custos-dashboard" autocomplete="username" hidden>
+    <label for="lock-password">Password</label>
+    <input id="lock-password" name="password" type="password" autocomplete="current-password" required>
+    <label class="lx-lock-remember"><input id="lock-remember" type="checkbox"> Remember on this device</label>
+    <button id="lock-submit" type="submit">Unlock</button>
+    <p id="lock-error" class="lx-lock-error" role="alert" hidden></p>
+  </form>
+</main>
+
+<div class="cp" id="compare" hidden>
+  <header>
+    <nav class="hm-tabs" aria-label="Sections"><a href="./">Tags</a><a href="compare.html" aria-current="page">Compare</a></nav>
+    <h1>Compare tags</h1>
+    <p class="cp-lead">Pick the tags, what to compare and the time range. The comparison appears as soon as two tags and a feature are chosen, and the page address keeps your choice so you can bookmark it.</p>
+    <div class="cp-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading…</span></span><button type="button" class="lx-link-btn" data-lock-now>Lock</button></div>
+  </header>
+
+  <section class="lx-card cp-controls" aria-label="Comparison settings">
+    <div class="cp-step">
+      <span><b>1</b>Tags <em id="tag-count" style="font-style:normal;font-weight:400"></em></span>
+      <div class="cp-chips" id="tag-chips"></div>
+      <p class="cp-hint">Choose two to four tags.</p>
+    </div>
+    <div class="cp-step">
+      <span><b>2</b><label for="feature">What to compare</label></span>
+      <select id="feature">
+        <option value="">Choose a feature…</option>
+        <optgroup label="Overview">
+          <option value="summary">Headline figures (table)</option>
+        </optgroup>
+        <optgroup label="Messages">
+          <option value="received">Received vs missing messages</option>
+          <option value="delivery">Delivery % over time</option>
+        </optgroup>
+        <optgroup label="Device health">
+          <option value="battery">Battery voltage</option>
+          <option value="temp">Temperature</option>
+        </optgroup>
+        <optgroup label="GPS">
+          <option value="fixrate">GPS fix rate over time</option>
+          <option value="map">GPS positions on a map</option>
+        </optgroup>
+        <optgroup label="Activity">
+          <option value="hod">Activity by hour of day</option>
+          <option value="rose">Daily activity profile (polar)</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="cp-step">
+      <span><b>3</b>Time range</span>
+      <div class="lx-range" role="group" aria-label="Time range">
+        <button type="button" data-range="24h">24 hours</button>
+        <button type="button" data-range="7d">7 days</button>
+        <button type="button" data-range="30d">30 days</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="cp-out" id="out" aria-live="polite"></section>
+
+  <footer>Data from Field Signal, refreshed every 10 minutes by a GitHub Actions job. Times are SAST (UTC+2). Missing messages are gaps in the Sigfox sequence number.</footer>
+</div>
+
+</div>
+<script>
+(() => {
+  const REFRESH_MS = 10 * 60 * 1000, MAX_TAGS = 4;
+  const RANGES = { '24h': 'past 24 hours', '7d': 'past 7 days', '30d': 'past 30 days' };
+  // Tag colours avoid red and orange, which mean "missing" in the delivery charts.
+  const PALETTE = ['var(--s1)', 'var(--s4)', 'var(--s6)', 'var(--s3)', 'var(--s8)', 'var(--s7)', 'var(--s2)', 'var(--s5)'];
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fInt = d3.format(','), f1 = d3.format('.1f'), f2 = d3.format('.2f');
+  const parseH = d3.utcParse('%Y-%m-%dT%H:%M'), parseD = d3.utcParse('%Y-%m-%d');
+  const parseK = k => k.length > 10 ? parseH(k) : parseD(k);
+  const fDay = d3.utcFormat('%b %-d'), fDayH = d3.utcFormat('%b %-d, %H:00'), fHour = d3.utcFormat('%H:%M');
+  const cssColor = v => { const m = /^var\((--[^)]+)\)$/.exec(v); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v; };
+  const $ = id => document.getElementById(id);
+
+  let home = null, lastIv = null, lastBundle = null, token = 0, mapObj = null;
+  const cache = {};           // tag id -> decrypted payload
+  const sel = readState();
+
+  // ---------- state in the address bar ----------
+  function readState() {
+    const q = new URLSearchParams(location.search);
+    let r = q.get('range'); if (!RANGES[r]) { try { r = localStorage.getItem('custos-range'); } catch (e) {} } if (!RANGES[r]) r = '7d';
+    const tags = (q.get('tags') || '').toUpperCase().split(',').map(s => s.replace(/[^0-9A-F]/g, '')).filter(Boolean).slice(0, MAX_TAGS);
+    return { tags, f: q.get('f') || '', r };
+  }
+  function writeState() {
+    const u = new URL(location.href);
+    u.search = '';
+    if (sel.tags.length) u.searchParams.set('tags', sel.tags.join(','));
+    if (sel.f) u.searchParams.set('f', sel.f);
+    u.searchParams.set('range', sel.r);
+    history.replaceState(null, '', u);
+    try { localStorage.setItem('custos-range', sel.r); } catch (e) {}
+  }
+
+  // ---------- lock and data ----------
+  const ui = CustosLock.mount({
+    content: $('compare'),
+    getBundle: async () => { if (!lastBundle) await loadHome(); return lastBundle; },
+    onOpen: (payload, bundle) => setHome(payload, bundle),
+  });
+  async function loadHome() {
+    try { lastBundle = await CustosLock.fetchBundle('data/tags.enc.json'); }
+    catch (e) { if (!home) ui.show('The tag list could not be loaded. Try again in a few minutes.'); return; }
+    if (lastBundle.iv === lastIv) { status(); return; }
+    const p = await CustosLock.open(lastBundle);
+    if (!p) { ui.show(home ? 'The password has changed. Enter the current password.' : null); return; }
+    setHome(p, lastBundle);
+  }
+  function setHome(p, bundle) {
+    const fresh = !home;
+    home = p; lastIv = bundle.iv;
+    for (const k of Object.keys(cache)) delete cache[k];
+    home.tags.forEach((t, i) => { t.color = PALETTE[i % PALETTE.length]; });
+    sel.tags = sel.tags.filter(id => home.tags.some(t => t.id === id && t.messages));
+    ui.hide(); status();
+    if (fresh) initControls();
+    drawChips(); render();
+  }
+  async function tagData(id) {
+    if (cache[id]) return cache[id];
+    const b = await CustosLock.fetchBundle(`data/tag-${id}.enc.json`);
+    const p = await CustosLock.open(b);
+    if (!p) throw new Error('locked');
+    return (cache[id] = p);
+  }
+  function rangeFiles(p, r) {
+    const R = p.ranges[r]; if (!R || !R.files) return null;
+    if (!R.parsed) R.parsed = Object.fromEntries(Object.entries(R.files).map(([k, v]) => [k.replace('.csv', ''), d3.csvParse(v)]));
+    return R.parsed;
+  }
+  function status() {
+    const el = $('updated'); if (!home) return;
+    const mins = Math.round((Date.now() - Date.parse(home.generatedAt)) / 60000);
+    el.parentElement.classList.toggle('is-stale', mins > 40);
+    el.textContent = `Data updated ${mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min ago'}` + (mins > 40 ? ' (updates seem delayed)' : ' · refreshes every 10 minutes');
+  }
+
+  // ---------- controls ----------
+  function initControls() {
+    $('feature').value = sel.f;
+    if ($('feature').value !== sel.f) sel.f = '';
+    $('feature').addEventListener('change', e => { sel.f = e.target.value; render(); });
+    document.querySelectorAll('.lx-range button').forEach(b => b.addEventListener('click', () => { sel.r = b.dataset.range; render(); }));
+  }
+  function drawChips() {
+    const box = $('tag-chips'); box.textContent = '';
+    home.tags.forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cp-chip'; b.style.setProperty('--c', t.color);
+      const on = sel.tags.includes(t.id);
+      b.setAttribute('aria-pressed', String(on));
+      b.disabled = !t.messages || (!on && sel.tags.length >= MAX_TAGS);
+      b.title = !t.messages ? 'No messages in the past 30 days' : (!on && sel.tags.length >= MAX_TAGS ? 'Up to four tags at a time' : `Sigfox ${t.id}`);
+      b.innerHTML = `<i></i>${esc(t.name)}`;
+      b.addEventListener('click', () => {
+        sel.tags = on ? sel.tags.filter(x => x !== t.id) : [...sel.tags, t.id];
+        sel.tags.sort((a, c) => home.tags.findIndex(x => x.id === a) - home.tags.findIndex(x => x.id === c));
+        drawChips(); render();
+      });
+      box.appendChild(b);
+    });
+    $('tag-count').textContent = sel.tags.length ? `· ${sel.tags.length} chosen` : '';
+  }
+
+  // ---------- rendering ----------
+  async function render() {
+    writeState();
+    document.querySelectorAll('.lx-range button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.range === sel.r)));
+    const out = $('out');
+    if (mapObj) { mapObj.remove(); mapObj = null; }
+    const need = [];
+    if (sel.tags.length < 2) need.push(sel.tags.length ? 'one more tag' : 'at least two tags');
+    if (!sel.f) need.push('what to compare');
+    if (need.length) { out.innerHTML = `<p class="lx-card cp-empty">Choose ${need.join(' and ')} above to see the comparison.</p>`; return; }
+    const my = ++token;
+    out.innerHTML = '<div class="cp-loading">Loading…</div>';
+    let payloads;
+    try { payloads = await Promise.all(sel.tags.map(tagData)); }
+    catch (e) { if (my === token) out.innerHTML = '<p class="lx-card cp-empty">The tag data could not be loaded. Try again in a few minutes.</p>'; return; }
+    if (my !== token) return;
+    const tags = sel.tags.map((id, i) => { const t = home.tags.find(x => x.id === id); const p = payloads[i]; return { ...t, p, R: p.ranges[sel.r], F: rangeFiles(p, sel.r) }; });
+    const withData = tags.filter(t => t.F), without = tags.filter(t => !t.F);
+    const R0 = tags[0].R;
+    const ctx = { tags: withData, all: tags, hourly: R0.bucket === 'hour', win: [parseH(R0.fromSast), parseH(R0.toSast)], label: RANGES[sel.r] };
+    const missingNote = without.length ? `<p class="cp-missing">No messages in the ${ctx.label} from ${without.map(t => esc(t.name)).join(' or ')}, so ${without.length === 1 ? 'it is' : 'they are'} left out. The last message from ${without.map(t => `${esc(t.name)} arrived ${esc(t.p.meta.lastMessageSast)}`).join('; ')} SAST.</p>` : '';
+    const F = FEATURES[sel.f];
+    out.innerHTML = '';
+    if (!withData.length) { out.innerHTML = `<p class="lx-card cp-empty">None of the chosen tags sent messages in the ${ctx.label}. Choose a longer range.</p>`; return; }
+    const card = document.createElement('div'); card.className = 'lx-card';
+    card.innerHTML = `<h2>${esc(F.title(ctx))}</h2><p class="lx-note">${F.note(ctx)}</p>${missingNote}`;
+    out.appendChild(card);
+    F.draw(card, ctx);
+  }
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (sel.f !== 'map') render(); }, 250); });
+
+  // ---------- chart helpers ----------
+  function measure(svg, labels) { const g = svg.append('g'); let w = 0; labels.forEach(t => { w = Math.max(w, g.append('text').attr('class', 'lx-tick').text(t).node().getComputedTextLength()); }); g.remove(); return w; }
+  function tipOf(box) { const t = document.createElement('div'); t.className = 'lx-tip'; box.appendChild(t); return t; }
+  function placeTip(tip, box, px, py) { tip.style.display = 'block'; const bw = box.clientWidth, tw = tip.offsetWidth; let left = px + 14; if (left + tw > bw) left = px - tw - 14; if (left < 0) left = 0; tip.style.left = left + 'px'; tip.style.top = Math.max(0, py - 30) + 'px'; }
+  function setTip(tip, head, lines) { tip.innerHTML = `<div class="lx-tip-h">${esc(head)}</div>` + lines.map(l => `<div>${l.color ? `<span class="sw" style="background:${l.color}"></span>` : ''}${esc(l.text)}</div>`).join(''); }
+  function legend(ctx, extra) {
+    const d = document.createElement('div'); d.className = 'cp-legend';
+    d.innerHTML = ctx.tags.map(t => `<span style="--c:${t.color}"><i></i><a href="tag.html?id=${encodeURIComponent(t.id)}&range=${sel.r}">${esc(t.name)}</a>${extra ? ` <em>${esc(extra(t))}</em>` : ''}</span>`).join('');
+    return d;
+  }
+  function chartBox(parent) { const b = document.createElement('div'); b.className = 'lx-chart'; parent.appendChild(b); return b; }
+  // Whole hours or whole days only, never two labels for the same day, and none at the very end of the window.
+  function timeTicks(x, hourly, nx) {
+    const [a, b] = x.domain(), span = (b - a) / (hourly ? 3600e3 : 86400e3);
+    const iv = hourly ? d3.utcHour.every(Math.max(1, Math.ceil(span / nx))) : d3.utcDay.every(Math.max(1, Math.ceil(span / nx)));
+    return iv.range(a, b).filter(t => (b - t) > (b - a) * 0.03);
+  }
+  function xAxis(svg, x, H, m, hourly, nx) {
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`)
+      .call(d3.axisBottom(x).tickValues(timeTicks(x, hourly, nx)).tickFormat(hourly ? fHour : fDay).tickSizeOuter(0))
+      .attr('font-size', null).attr('font-family', null)
+      .call(g => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'))
+      .call(g => g.selectAll('.tick line').remove())
+      .call(g => g.selectAll('text').attr('class', 'lx-tick'));
+  }
+
+  // Several tags on one chart. series: [{ name, color, rows: [{ x, y }] }]
+  function multiLine(box, series, o) {
+    box.innerHTML = '';
+    const W = Math.max(300, box.clientWidth), H = 300, m = { t: 12, r: 16, b: 28, l: 0 };
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ys = series.flatMap(s => s.rows.map(d => d.y)).filter(Number.isFinite);
+    let yd = o.yDomain || d3.extent(ys); if (!o.yDomain) { const pad = (yd[1] - yd[0]) * 0.1 || 0.5; yd = [yd[0] - pad, yd[1] + pad]; }
+    const y = d3.scaleLinear(yd, [H - m.b, m.t]).nice();
+    const yt = y.ticks(5);
+    m.l = measure(svg, yt.map(o.yFmt)) + 12;
+    const x = o.hod ? d3.scaleLinear([0, 23], [m.l, W - m.r]) : d3.scaleUtc(o.xDomain, [m.l, W - m.r]);
+    svg.append('g').selectAll('line').data(yt).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick').attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(o.yFmt);
+    const nx = Math.max(2, Math.floor((W - m.l) / 80));
+    if (o.hod) {
+      svg.append('g').selectAll('text').data(d3.range(0, 24, W < 520 ? 6 : 3)).join('text').attr('class', 'lx-tick').attr('x', d => x(d)).attr('y', H - 8).attr('text-anchor', 'middle').text(d => String(d).padStart(2, '0') + ':00');
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+    } else xAxis(svg, x, H, m, o.hourly, nx);
+    const xv = d => o.hod ? d.x : +d.x;
+    series.forEach(s => {
+      const pts = [];
+      s.rows.forEach((d, i) => { if (i && xv(d) - xv(s.rows[i - 1]) > o.gap) pts.push(null); pts.push(d); });
+      svg.append('path').datum(pts).attr('d', d3.line().defined(d => d && Number.isFinite(d.y)).x(d => x(d.x)).y(d => y(d.y)))
+        .attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+      if (s.rows.length <= 40) svg.append('g').selectAll('circle').data(s.rows.filter(d => Number.isFinite(d.y))).join('circle').attr('cx', d => x(d.x)).attr('cy', d => y(d.y)).attr('r', 2.5).attr('fill', s.color);
+    });
+    const rule = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-reference)').style('display', 'none');
+    const dots = series.map(s => svg.append('circle').attr('r', 4.5).attr('fill', s.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).style('display', 'none'));
+    const tip = tipOf(box);
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointermove', ev => {
+        const [px] = d3.pointer(ev); const xi = x.invert(px), xn = o.hod ? xi : +xi;
+        const hits = series.map(s => { if (!s.rows.length) return null; const i = d3.bisector(xv).center(s.rows, xn); const d = s.rows[i]; return d && Math.abs(xv(d) - xn) <= o.tol && Number.isFinite(d.y) ? d : null; });
+        const any = hits.find(Boolean); if (!any) { tip.style.display = 'none'; rule.style('display', 'none'); dots.forEach(d => d.style('display', 'none')); return; }
+        rule.style('display', null).attr('x1', x(any.x)).attr('x2', x(any.x));
+        hits.forEach((d, i) => dots[i].style('display', d ? null : 'none').attr('cx', d ? x(d.x) : 0).attr('cy', d ? y(d.y) : 0));
+        setTip(tip, o.head(any.x), series.map((s, i) => ({ color: s.color, text: `${s.name}: ${hits[i] ? o.tipFmt(hits[i]) : 'no data'}` })));
+        const s = box.clientWidth / W; placeTip(tip, box, x(any.x) * s, 60);
+      })
+      .on('pointerleave', () => { tip.style.display = 'none'; rule.style('display', 'none'); dots.forEach(d => d.style('display', 'none')); });
+  }
+
+  function stackedBars(box, rows, o) {
+    box.innerHTML = '';
+    const W = Math.max(280, box.clientWidth), H = 230, m = { t: 10, r: 8, b: 26, l: 0 };
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const y = d3.scaleLinear([0, o.yMax || 1], [H - m.b, m.t]).nice();
+    const yt = y.ticks(4);
+    m.l = measure(svg, yt.map(d3.format(','))) + 10;
+    const x = d3.scaleBand(rows.map(d => d.k), [m.l, W - m.r]).padding(0.22);
+    svg.append('g').selectAll('line').data(yt).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick').attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(d3.format(','));
+    const lw = d3.max(rows, d => measure(svg, [o.xFmt(d.k)])) + 8;
+    const every = Math.max(1, Math.ceil(lw / x.step()));
+    svg.append('g').selectAll('text').data(rows.filter((d, i) => i % every === 0)).join('text').attr('class', 'lx-tick').attr('x', d => x(d.k) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').text(d => o.xFmt(d.k));
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+    const bw = Math.min(28, x.bandwidth()), off = (x.bandwidth() - bw) / 2;
+    const g = svg.append('g').selectAll('g').data(rows).join('g');
+    g.append('rect').attr('x', d => x(d.k) + off).attr('width', bw).attr('y', d => y(d.rec)).attr('height', d => y(0) - y(d.rec)).attr('fill', o.color);
+    g.append('rect').attr('x', d => x(d.k) + off).attr('width', bw).attr('y', d => y(d.rec + d.miss)).attr('height', d => y(d.rec) - y(d.rec + d.miss)).attr('rx', 2).attr('fill', 'var(--cds-chart-status-critical)');
+    const tip = tipOf(box);
+    g.append('rect').attr('x', d => x(d.k)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointerenter', function (ev, d) {
+        d3.select(this).attr('fill', 'var(--cds-chart-grid)');
+        setTip(tip, o.head(d.k), [{ color: o.color, text: `Received ${fInt(d.rec)}` }, { color: 'var(--cds-chart-status-critical)', text: `Missing ${fInt(d.miss)}` }]);
+        const s = box.clientWidth / W; placeTip(tip, box, (x(d.k) + x.bandwidth()) * s, 60);
+      })
+      .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
+  }
+
+  function rose(box, rows, max, color) {
+    box.innerHTML = '';
+    const W = Math.max(260, box.clientWidth), S = Math.min(W, 340), H = S, R = S / 2 - 30;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const r = d3.scaleLinear([0, max || 1], [0, R]).nice();
+    const ticks = r.ticks(4).filter(t => t > 0);
+    const g = svg.append('g').attr('transform', `translate(${W / 2},${H / 2})`);
+    g.selectAll('circle.ring').data(ticks).join('circle').attr('r', d => r(d)).attr('fill', 'none').attr('stroke', 'var(--cds-chart-grid)');
+    g.append('circle').attr('r', R).attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)').attr('stroke-width', 1.5);
+    [0, 3, 6, 9, 12, 15, 18, 21].forEach(h => {
+      const a = h / 24 * 2 * Math.PI;
+      g.append('line').attr('x2', Math.sin(a) * R).attr('y2', -Math.cos(a) * R).attr('stroke', 'var(--cds-chart-grid)');
+      g.append('text').attr('class', 'lx-tick').attr('x', Math.sin(a) * (R + 15)).attr('y', -Math.cos(a) * (R + 15)).attr('dy', '0.32em').attr('text-anchor', 'middle').text(String(h).padStart(2, '0'));
+    });
+    const arc = d3.arc().innerRadius(0).outerRadius(d => r(d.v)).cornerRadius(2).startAngle(d => (d.h - 0.45) / 24 * 2 * Math.PI).endAngle(d => (d.h + 0.45) / 24 * 2 * Math.PI);
+    const tip = tipOf(box);
+    g.selectAll('path').data(rows).join('path').attr('d', arc).attr('fill', color).attr('fill-opacity', 0.8)
+      .on('pointerenter', function (ev, d) { d3.select(this).attr('fill-opacity', 1); setTip(tip, `${String(d.h).padStart(2, '0')}:00 SAST`, [{ text: `Mean ACC ${f2(d.v)} per message` }, { text: `${fInt(d.n)} messages` }]); const [px, py] = d3.pointer(ev, box); placeTip(tip, box, px, py); })
+      .on('pointerleave', function () { d3.select(this).attr('fill-opacity', 0.8); tip.style.display = 'none'; });
+    ticks.forEach(t => g.append('text').attr('class', 'lx-tick').attr('x', 4).attr('y', -r(t) - 3).text(f1(t)));
+  }
+
+  // ---------- features ----------
+  const timeRows = (rows, key, fn) => rows.map(d => ({ x: parseK(d[key]), y: fn(d), d })).filter(d => d.x);
+  const lineOpts = (ctx, extra) => ({ xDomain: ctx.win, hourly: ctx.hourly, head: x => ctx.hourly ? fDayH(x) + ' SAST' : fDay(x), ...extra });
+  const n = v => (v === '' || v == null) ? NaN : Number(v);
+
+  const FEATURES = {
+    summary: {
+      title: ctx => `Headline figures, ${ctx.label}`,
+      note: () => 'Bold marks the best value in each row where one direction is clearly better.',
+      draw(card, ctx) {
+        const S = t => t.F.summary[0];
+        const rows = [
+          ['Messages received', t => fInt(S(t).messages), t => +S(t).messages, 'max'],
+          ['Messages expected', t => fInt(S(t).expected_messages)],
+          ['Delivery', t => S(t).delivery_pct + '%', t => +S(t).delivery_pct, 'max'],
+          ['Missing messages', t => fInt(S(t).missing_messages), t => +S(t).missing_messages, 'min'],
+          ['GPS fixes', t => fInt(S(t).gps_fixes)],
+          ['GPS fix rate', t => f1(S(t).gps_fixes / S(t).messages * 100) + '%', t => S(t).gps_fixes / S(t).messages, 'max'],
+          ['Median time to fix', t => S(t).ttf_median_s === '' ? '—' : S(t).ttf_median_s + ' s', t => n(S(t).ttf_median_s), 'min'],
+          ['Battery now', t => S(t).battery_v_latest + ' V'],
+          ['Lowest battery', t => S(t).battery_v_min + ' V', t => +S(t).battery_v_min, 'max'],
+          ['Temperature, avg', t => f1(S(t).temp_c_avg) + ' °C'],
+          ['Temperature range', t => `${S(t).temp_c_min} to ${S(t).temp_c_max} °C`],
+          ['Messages with activity', t => fInt(S(t).msgs_with_activity)],
+          ['ACC sum', t => fInt(S(t).activity_sum)],
+          ['Longest silence', t => { const g = d3.max(t.F.longest_gaps, r => n(r.gap_minutes)); return g ? `${Math.floor(g / 60)} h ${g % 60} min` : 'under 4.5 h'; }, t => d3.max(t.F.longest_gaps, r => n(r.gap_minutes)) || 0, 'min'],
+          ['First message', t => S(t).first_message_sast],
+          ['Last message', t => S(t).last_message_sast],
+        ];
+        const tbl = document.createElement('div'); tbl.className = 'lx-tbl-wrap';
+        tbl.innerHTML = `<table class="cp-tbl"><thead><tr><th></th>${ctx.tags.map(t => `<th style="--c:${t.color}"><a href="tag.html?id=${encodeURIComponent(t.id)}&range=${sel.r}">${esc(t.name)}</a></th>`).join('')}</tr></thead><tbody>${rows.map(([label, fmt, val, dir]) => {
+          let best = null;
+          if (val && ctx.tags.length > 1) { const vs = ctx.tags.map(val); const ok = vs.filter(Number.isFinite); if (ok.length > 1 && d3.min(ok) !== d3.max(ok)) best = dir === 'max' ? d3.max(ok) : d3.min(ok); var vals = vs; }
+          return `<tr><td>${esc(label)}</td>${ctx.tags.map((t, i) => `<td class="${best !== null && vals[i] === best ? 'best' : ''}">${esc(fmt(t))}</td>`).join('')}</tr>`;
+        }).join('')}</tbody></table>`;
+        card.appendChild(tbl);
+      },
+    },
+    received: {
+      title: ctx => `Received vs missing messages per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: ctx => `One chart per tag on the same scale. Missing messages are gaps in the Sigfox sequence number, credited to the ${ctx.hourly ? 'hour' : 'day'} the next message arrived; red is missing.`,
+      draw(card, ctx) {
+        const data = ctx.tags.map(t => ({ t, rows: t.F.daily.map(d => ({ k: d.date, rec: +d.messages, miss: +d.missing_before })) }));
+        const yMax = d3.max(data, s => d3.max(s.rows, d => d.rec + d.miss)) || 1;
+        const grid = document.createElement('div'); grid.className = 'cp-multi'; card.appendChild(grid);
+        data.map(({ t, rows }) => {
+          const c = document.createElement('div'); c.className = 'lx-card'; c.style.setProperty('--c', t.color);
+          const S = t.F.summary[0];
+          c.innerHTML = `<h3><a href="tag.html?id=${encodeURIComponent(t.id)}&range=${sel.r}" style="color:inherit">${esc(t.name)}</a><small>${S.delivery_pct}% delivered · ${fInt(S.messages)} of ${fInt(S.expected_messages)}</small></h3>`;
+          grid.appendChild(c);
+          return { t, rows, box: chartBox(c) };
+        }).forEach(({ t, rows, box }) => {
+          stackedBars(box, rows, { yMax, color: t.color, xFmt: k => ctx.hourly ? fHour(parseK(k)) : fDay(parseK(k)), head: k => ctx.hourly ? fDayH(parseK(k)) : fDay(parseK(k)) });
+        });
+      },
+    },
+    delivery: {
+      title: ctx => `Delivery % per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: ctx => `Messages received as a share of received plus missing, for each ${ctx.hourly ? 'hour' : 'day'}. Breaks in a line are ${ctx.hourly ? 'hours' : 'days'} with no messages.`,
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => t.F.summary[0].delivery_pct + '% overall'));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => (+d.messages + +d.missing_before) ? +d.messages / (+d.messages + +d.missing_before) * 100 : NaN) })),
+          lineOpts(ctx, { yDomain: [0, 100], yFmt: v => v + '%', gap: ctx.hourly ? 1.5 * 3600e3 : 1.5 * 86400e3, tol: ctx.hourly ? 0.6 * 3600e3 : 0.6 * 86400e3, tipFmt: d => `${f1(d.y)}% (${fInt(d.d.messages)} received, ${fInt(d.d.missing_before)} missing)` }));
+      },
+    },
+    fixrate: {
+      title: ctx => `GPS fix rate per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: () => 'Share of received messages with a valid GPS fix (not HDOP 99).',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => f1(t.F.summary[0].gps_fixes / t.F.summary[0].messages * 100) + '% overall'));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => +d.messages ? (+d.messages - +d.no_fix) / +d.messages * 100 : NaN) })),
+          lineOpts(ctx, { yDomain: [0, 100], yFmt: v => v + '%', gap: ctx.hourly ? 1.5 * 3600e3 : 1.5 * 86400e3, tol: ctx.hourly ? 0.6 * 3600e3 : 0.6 * 86400e3, tipFmt: d => `${f1(d.y)}% of ${fInt(d.d.messages)} messages` }));
+      },
+    },
+    battery: {
+      title: ctx => `Battery voltage, hourly average, ${ctx.label}`,
+      note: () => 'Average battery reading in each hour. Jumps back up usually mean a recharge.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `now ${t.F.summary[0].battery_v_latest} V, lowest ${t.F.summary[0].battery_v_min} V`));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.hourly, 'hour_sast', d => n(d.battery_v_avg)) })),
+          lineOpts(ctx, { yFmt: v => f1(v) + ' V', gap: 3 * 3600e3, tol: 0.6 * 3600e3, tipFmt: d => `${f2(d.y)} V`, head: x => fDayH(x) + ' SAST' }));
+      },
+    },
+    temp: {
+      title: ctx => `Temperature, hourly average, ${ctx.label}`,
+      note: () => 'Average tag sensor reading in each hour.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `avg ${f1(t.F.summary[0].temp_c_avg)} °C`));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.hourly, 'hour_sast', d => n(d.temp_c_avg)) })),
+          lineOpts(ctx, { yFmt: v => v + '°C', gap: 3 * 3600e3, tol: 0.6 * 3600e3, tipFmt: d => `${f1(d.y)} °C`, head: x => fDayH(x) + ' SAST' }));
+      },
+    },
+    hod: {
+      title: ctx => `Activity by hour of day, ${ctx.label}`,
+      note: () => 'Mean accelerometer (ACC) count per message in each hour of the day (SAST). Using the mean per message keeps tags that send different numbers of messages comparable.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `ACC sum ${fInt(t.F.summary[0].activity_sum)}`));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: t.F.hour_of_day.map(d => ({ x: +d.hour_sast, y: +d.messages ? +d.activity_sum / +d.messages : NaN, d })) })),
+          { hod: true, yFmt: v => f1(v), gap: 1.5, tol: 0.5, tipFmt: d => `${f2(d.y)} per message (${fInt(d.d.messages)} msgs)`, head: h => `${String(h).padStart(2, '0')}:00 SAST`, yDomain: [0, (d3.max(ctx.tags.flatMap(t => t.F.hour_of_day.map(d => +d.messages ? +d.activity_sum / +d.messages : 0))) || 1) * 1.1] });
+      },
+    },
+    rose: {
+      title: ctx => `Daily activity profile, ${ctx.label}`,
+      note: () => 'Mean ACC count per message for each hour of the day (SAST), one polar chart per tag on the same scale. Midnight is at the top.',
+      draw(card, ctx) {
+        const data = ctx.tags.map(t => ({ t, rows: t.F.hour_of_day.map(d => ({ h: +d.hour_sast, n: +d.messages, v: +d.messages ? +d.activity_sum / +d.messages : 0 })) }));
+        const max = d3.max(data, s => d3.max(s.rows, d => d.v)) || 1;
+        const grid = document.createElement('div'); grid.className = 'cp-multi'; card.appendChild(grid);
+        data.map(({ t, rows }) => {
+          const c = document.createElement('div'); c.className = 'lx-card'; c.style.setProperty('--c', t.color);
+          c.innerHTML = `<h3><a href="tag.html?id=${encodeURIComponent(t.id)}&range=${sel.r}" style="color:inherit">${esc(t.name)}</a><small>ACC sum ${fInt(t.F.summary[0].activity_sum)}</small></h3>`;
+          grid.appendChild(c);
+          return { t, rows, box: chartBox(c) };
+        }).forEach(({ t, rows, box }) => rose(box, rows, max, t.color));
+      },
+    },
+    map: {
+      title: ctx => `GPS positions, ${ctx.label}`,
+      note: () => 'Each tag in its own colour. Fixes at the same spot are merged and dot size shows how many; thin lines are each tag\'s movement track. Hover a dot for details.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `${fInt(t.F.summary[0].gps_fixes)} fixes`));
+        const box = document.createElement('div'); box.className = 'cp-map'; card.appendChild(box);
+        if (typeof L === 'undefined') { box.textContent = 'The map library failed to load.'; return; }
+        const map = mapObj = L.map(box, { zoomSnap: 0.5 });
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+        L.control.scale({ imperial: false }).addTo(map);
+        const all = ctx.tags.flatMap(t => t.F.fix_points.map(d => +d.fixes));
+        const rN = d3.scaleSqrt([1, d3.max(all) || 1], [3, 11]);
+        const bounds = [];
+        ctx.tags.forEach(t => {
+          const col = cssColor(t.color);
+          const tr = t.F.track.map(d => [+d.lat, +d.lon]);
+          if (tr.length > 1) L.polyline(tr, { color: col, weight: 1.5, opacity: 0.5, interactive: false }).addTo(map);
+        });
+        ctx.tags.forEach(t => {
+          const col = cssColor(t.color);
+          t.F.fix_points.slice().sort((a, b) => b.fixes - a.fixes).forEach(d => {
+            const ll = [+d.lat, +d.lon]; bounds.push(ll);
+            L.circleMarker(ll, { radius: rN(+d.fixes), color: '#ffffff', weight: 1, fillColor: col, fillOpacity: 0.8 })
+              .bindTooltip(`<b>${esc(t.name)}</b> · ${esc(d.window)}<br>${(+d.lat).toFixed(5)}, ${(+d.lon).toFixed(5)}<br>${fInt(+d.fixes)} fix${+d.fixes === 1 ? '' : 'es'} · ACC sum ${fInt(+d.acc_sum)}`, { direction: 'top', offset: [0, -4] })
+              .addTo(map);
+          });
+        });
+        if (bounds.length) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 }); else map.setView([-26.2, 28.0], 10);
+      },
+    },
+  };
+
+  setInterval(loadHome, REFRESH_MS);
+  setInterval(status, 60 * 1000);
+  loadHome();
+})();
+</script>
+</body>
+</html>

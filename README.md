@@ -5,6 +5,7 @@ A password-protected website for Custos Sigfox tags: a homepage with a button fo
 ```
 site/index.html          homepage: one card per tag with its status, links to the tag's dashboard
 site/tag.html            a tag's dashboard (tag.html?id=SIGFOX_ID): charts, live OpenStreetMap map
+site/compare.html        Compare tab: two to four tags side by side for one feature and time range
 site/lock.js, common.css password lock and styles shared by both pages
 scripts/update.mjs       signs in to Field Signal, exports each tag's last 31 days, writes encrypted data for the 24 h / 7 day / 30 day views
 .github/workflows/       runs the script every 10 minutes and deploys to GitHub Pages
@@ -49,6 +50,10 @@ Edit `TAGS` in `.github/workflows/update.yml`, one tag per line as `SIGFOX_ID=Na
 ```
 
 Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the past 30 days shows on the homepage as "No messages" with no dashboard link.
+
+## Compare
+
+The **Compare** tab on the homepage puts two to four tags side by side. Pick the tags, what to compare (headline figures, received vs missing, delivery %, battery, temperature, GPS fix rate, GPS map, activity by hour, daily activity profile) and the time range; the comparison appears as soon as two tags and a feature are chosen. Each tag keeps one colour throughout. The choice is kept in the address (`compare.html?tags=3B4D868,3B4D876&f=received&range=7d`), so a comparison can be bookmarked.
 
 ## Time ranges
 
