@@ -34,10 +34,14 @@ jobs:
         run: mkdir -p _site && cp -r site/. _site/ && rm -rf _site/data
 
       - name: Fetch the latest tag data from Field Signal
+        # To add a tag, add a line to TAGS:  SIGFOX_ID=Name shown on the site
         env:
           FIELD_SIGNAL_PASSCODE: ${{ secrets.FIELD_SIGNAL_PASSCODE }}
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
           OUT_DIR: _site/data
+          TAGS: |
+            3B4D874=Custos 11.5SAC
+            3B4D876=Custos 11-4 SAC
         run: node scripts/update.mjs
 
       - uses: actions/configure-pages@v5

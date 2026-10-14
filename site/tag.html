@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Custos tag</title>
+<meta name="description" content="Live health, delivery and movement dashboard for a Custos Sigfox tag.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link rel="stylesheet" href="common.css">
+<style>
+#dash-root .lx { font-family: var(--font-anthropic-sans); color: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+#dash-root .lx-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 var(--cds-gap-xs); }
+#dash-root .lx-take { color: var(--color-fg-muted); font-size: var(--cds-font-size-body); margin: 0; max-width: 60rem; line-height: 1.5; }
+#dash-root .lx-take b, #dash-root .lx-kpi b { font-weight: 500; color: var(--color-fg); }
+#dash-root .lx-meta { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-xs); }
+#dash-root .lx-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .lx-kpi, #dash-root .lx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+#dash-root .lx-kpi { padding: var(--cds-pad-md); display: flex; flex-direction: column; gap: var(--cds-gap-xs); }
+#dash-root .lx-kpi .lx-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .lx-kpi .lx-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.1; }
+#dash-root .lx-kpi .lx-unit { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin-left: 2px; }
+#dash-root .lx-kpi .lx-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+#dash-root .lx-bad { color: var(--color-bad); }
+#dash-root .lx-warn { color: var(--color-warn); }
+#dash-root .lx-ok { color: var(--color-ok); }
+#dash-root .lx-sec { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-sm) 0 0; }
+#dash-root .lx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .lx-card { padding: var(--cds-pad-lg); min-width: 0; }
+#dash-root .lx-card h3 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+#dash-root .lx-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); line-height: 1.45; }
+#dash-root .lx-chart { position: relative; min-height: 220px; }
+#dash-root .lx-legend { display: flex; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-sm); flex-wrap: wrap; }
+#dash-root .lx-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+#dash-root .lx-tick { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; display: none; z-index: 2; font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip .lx-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+#dash-root .lx-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 220px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+#dash-root .lx-fail i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); display: inline-block; }
+#dash-root .lx-tbl-wrap { max-height: 22rem; overflow: auto; }
+#dash-root table.lx-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+#dash-root table.lx-tbl th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); position: sticky; top: 0; background: var(--color-panel); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); }
+#dash-root table.lx-tbl td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); }
+#dash-root table.lx-tbl .lx-num { text-align: right; }
+#dash-root [data-dash-source-state=empty] { color: transparent; }
+#dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+#dash-root .lx-bar { height: 8px; border-radius: 4px; min-width: 2px; }
+#dash-root #windows-take { font-weight: 500; color: var(--color-fg); }
+#dash-root { --lx-road-major: color-mix(in srgb, var(--color-fg) 32%, transparent); --lx-road-mid: color-mix(in srgb, var(--color-fg) 22%, transparent); --lx-road-minor: color-mix(in srgb, var(--color-fg) 13%, transparent); --lx-campus: color-mix(in srgb, var(--color-warn) 14%, transparent); --lx-campus-line: color-mix(in srgb, var(--color-warn) 45%, transparent); --lx-park: color-mix(in srgb, var(--color-ok) 14%, transparent); --lx-park-line: color-mix(in srgb, var(--color-ok) 40%, transparent); --lx-landuse: color-mix(in srgb, var(--color-fg) 5%, transparent); }
+#dash-root .lx-attr { font-size: 10px; fill: var(--color-fg-muted); }
+#dash-root .lx-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); }
+@media (min-width: 1100px) { #dash-root .lx-panels { grid-template-columns: 2fr 3fr; } }
+#dash-root .lx-rose { min-height: 340px; display: flex; justify-content: center; }
+#dash-root .lx-map { min-height: 460px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; background: var(--color-bg); touch-action: none; }
+#dash-root .lx-zoom-btns { display: flex; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-sm); flex-wrap: wrap; }
+#dash-root .lx-zoom-btns button { font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+#dash-root .lx-zoom-btns button[aria-pressed=true] { border-color: var(--color-fg); }
+#dash-root .lx-legend-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cds-gap-lg); font-size: var(--cds-font-size-caption); }
+#dash-root .lx-legend-card h4 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
+#dash-root .lx-legend-card .lx-leg-col > div:not(#leg-windows), #dash-root #leg-windows > div { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--color-fg); }
+#dash-root .lx-legend-card .lx-leg-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+#dash-root .lx-legend-card .lx-leg-hours { color: var(--color-fg-muted); font-variant-numeric: tabular-nums; min-width: 6.5rem; }
+#dash-root .lx-interp ul { margin: 0; padding-left: 1.1rem; line-height: 1.45; }
+#dash-root .lx-interp li { margin-bottom: 4px; }
+@media (max-width: 560px) { #dash-root .lx-hide-narrow { display: none; } }
+</style>
+<script src="lock.js"></script>
+<script>
+// Minimal stand-in for the Claude dashboard runtime: loads the encrypted data for the tag in ?id=, decrypts it
+// with the visitor's password (lock.js), recomputes calcs, redraws, and checks for new data every 10 minutes.
+window.dash = (() => {
+  const FILES = { summary: 'summary.csv', daily: 'daily.csv', hourly: 'hourly.csv', hod: 'hour_of_day.csv', locations: 'locations_top10.csv', gaps: 'longest_gaps.csv', fix_points: 'fix_points.csv', track: 'track.csv' };
+  const REFRESH_MS = 10 * 60 * 1000;
+  const store = {}, calcs = {}, cbs = [];
+  const TAG = (new URLSearchParams(location.search).get('id') || '').toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 8);
+  let meta = null, lastLoad = 0, lastIv = null, lastBundle = null;
+  const raw = id => store[id] || { status: 'loading', data: [] };
+  function data(id) {
+    const c = calcs[id];
+    if (!c) return raw(id);
+    const ins = c.inputs.map(data);
+    if (ins.some(i => i.status === 'error')) return { status: 'error', data: [] };
+    if (ins.some(i => i.status !== 'ok')) return { status: 'loading', data: [] };
+    try { return { status: 'ok', data: c.fn(...ins.map(i => i.data)) }; } catch (e) { console.error(e); return { status: 'error', data: [] }; }
+  }
+  function fire() { cbs.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); showStatus(); }
+  function showStatus() {
+    const el = document.getElementById('updated'); if (!el) return;
+    if (!meta) { el.textContent = 'Waiting for the first update'; return; }
+    const mins = Math.round((Date.now() - Date.parse(meta.generatedAt)) / 60000);
+    const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ${mins % 60} min ago`;
+    el.parentElement.classList.toggle('is-stale', mins > 40);
+    el.textContent = `Data updated ${ago}` + (mins > 40 ? ' (updates seem delayed)' : ' · refreshes every 10 minutes');
+  }
+  async function load() {
+    lastLoad = Date.now();
+    if (!TAG) { ui.show('No tag selected. Go back to the list of tags.'); return; }
+    let bundle;
+    try { bundle = await CustosLock.fetchBundle(`data/tag-${TAG}.enc.json`); }
+    catch (e) { if (!meta) ui.show(e.status === 404 ? `There is no data for tag ${TAG}. It may not be on the list of published tags.` : 'The dashboard data could not be loaded. Try again in a few minutes.'); return; }
+    lastBundle = bundle;
+    if (bundle.iv === lastIv) { showStatus(); return; }
+    const payload = await CustosLock.open(bundle);
+    if (!payload) { ui.show(meta ? 'The password has changed. Enter the current password.' : null); return; }
+    apply(payload, bundle);
+  }
+  function apply(payload, bundle) {
+    lastIv = bundle.iv;
+    for (const [id, f] of Object.entries(FILES)) store[id] = payload.files[f] != null ? { status: 'ok', data: d3.csvParse(payload.files[f]) } : { status: 'error', data: [] };
+    meta = payload.meta;
+    document.title = meta.name + ' · Custos tags';
+    document.querySelectorAll('[data-meta=name]').forEach(e => { e.textContent = meta.name; });
+    document.querySelectorAll('[data-meta=device]').forEach(e => { e.textContent = meta.device; });
+    ui.hide();
+    fire();
+  }
+  let ui;
+  function start() {
+    ui = CustosLock.mount({ content: document.querySelector('#dash-root .lx'), getBundle: async () => { if (!lastBundle) await load(); return lastBundle; }, onOpen: apply });
+    document.getElementById('lock-eyebrow').textContent = TAG ? 'Sigfox tag ' + TAG : 'Custos tags';
+    return load();
+  }
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fire, 200); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastLoad > REFRESH_MS / 2) load(); });
+  setInterval(load, REFRESH_MS);
+  setInterval(showStatus, 60 * 1000);
+  return {
+    data, calc: (id, c) => { calcs[id] = c; },
+    onData: fn => { cbs.push(fn); try { fn(); } catch (e) { console.error(e); } },
+    colors: ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)', 'var(--s7)', 'var(--s8)'],
+    start, tag: TAG, meta: () => meta,
+  };
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+
+<main id="lock" class="lx-lock">
+  <form id="lock-form" class="lx-lock-card" autocomplete="on">
+    <p class="lx-lock-eyebrow" id="lock-eyebrow">Custos tags</p>
+    <h1>Custos tag dashboard</h1>
+    <p class="lx-lock-lead">This dashboard is password protected. Enter the password to view the tag's health and movement.</p>
+    <input type="text" name="username" value="custos-dashboard" autocomplete="username" hidden>
+    <label for="lock-password">Password</label>
+    <input id="lock-password" name="password" type="password" autocomplete="current-password" required>
+    <label class="lx-lock-remember"><input id="lock-remember" type="checkbox"> Remember on this device</label>
+    <button id="lock-submit" type="submit">Unlock</button>
+    <p id="lock-error" class="lx-lock-error" role="alert" hidden></p>
+  </form>
+</main>
+
+<div class="lx" hidden>
+  <header class="lx-head" id="top">
+    <a class="lx-back" href="./">← All tags</a>
+    <h1 data-meta="name">Custos tag</h1>
+    <p class="lx-take" id="takeaway">
+      <span id="status-lead">Still reporting</span> (last message <b data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</b> SAST), but only
+      <b data-source="summary" data-field="delivery_pct" data-row="0" class="dash-skeleton">—</b>% of expected messages arrived, and <b id="tower-text">—</b> carried a tower reading stronger than −140 dBm. Battery is at <b data-source="summary" data-field="battery_v_latest" data-row="0" class="dash-skeleton">—</b> V.
+    </p>
+    <div class="lx-meta">Device <span data-source="summary" data-field="device_id" data-row="0" class="dash-skeleton">—</span> · <span data-source="summary" data-field="first_message_sast" data-row="0" class="dash-skeleton">—</span> to <span data-source="summary" data-field="last_message_sast" data-row="0" class="dash-skeleton">—</span> SAST</div>
+    <div class="lx-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading data…</span></span><button type="button" id="lock-again" class="lx-link-btn" data-lock-now>Lock</button></div>
+  </header>
+
+  <section class="lx-kpis" id="headline">
+    <div class="lx-kpi">
+      <span class="lx-label">Delivery</span>
+      <span class="lx-big lx-bad"><span data-source="summary" data-field="delivery_pct" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">%</span></span>
+      <span class="lx-sub"><span data-source="summary" data-field="messages" data-row="0">—</span> of <span data-source="summary" data-field="expected_messages" data-row="0">—</span> expected</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Missing messages</span>
+      <span class="lx-big"><span data-source="summary" data-field="missing_messages" data-row="0" class="dash-skeleton">—</span></span>
+      <span class="lx-sub">gaps in sequence numbers</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">GPS fix rate</span>
+      <span class="lx-big"><span data-source="fix_rate" data-field="fix_pct" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">%</span></span>
+      <span class="lx-sub"><span data-source="summary" data-field="no_fix" data-row="0">—</span> messages without a fix</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Battery now</span>
+      <span class="lx-big lx-ok"><span data-source="summary" data-field="battery_v_latest" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">V</span></span>
+      <span class="lx-sub">lowest <span data-source="summary" data-field="battery_v_min" data-row="0">—</span> V in period</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Temperature, avg</span>
+      <span class="lx-big"><span data-source="summary" data-field="temp_c_avg" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">°C</span></span>
+      <span class="lx-sub"><span data-source="summary" data-field="temp_c_min" data-row="0">—</span> to <span data-source="summary" data-field="temp_c_max" data-row="0">—</span> °C</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Messages with activity</span>
+      <span class="lx-big"><span data-source="summary" data-field="msgs_with_activity" data-row="0" class="dash-skeleton">—</span></span>
+      <span class="lx-sub">ACC sum <span data-source="summary" data-field="activity_sum" data-row="0">—</span></span>
+    </div>
+  </section>
+
+  <h2 class="lx-sec" id="delivery">Message delivery</h2>
+  <div class="lx-grid">
+    <div class="lx-card">
+      <h3>Received vs missing, per day</h3>
+      <p class="lx-note">Missing counts are gaps in the Sigfox sequence number, credited to the day the next message arrived. Days with no bar received nothing.</p>
+      <div class="lx-legend"><span><i class="lx-sw" id="sw-rec"></i>Received</span><span><i class="lx-sw" style="background: var(--cds-chart-status-critical)"></i>Missing</span></div>
+      <div class="lx-chart" id="chart-daily" data-source="daily"></div>
+    </div>
+    <div class="lx-card">
+      <h3>Longest silences</h3>
+      <p class="lx-note">Gaps of more than 4.5 hours (270 min) between received messages, longest first.</p>
+      <div class="lx-tbl-wrap">
+        <table class="lx-tbl" id="tbl-gaps" data-source="gaps" data-row-key="from_sast">
+          <thead><tr>
+            <th data-field="from_sast">From (SAST)</th>
+            <th data-field="to_sast">To (SAST)</th>
+            <th data-field="gap_minutes" class="lx-num">Minutes</th>
+            <th data-field="seq_skipped" class="lx-num">Seq skipped</th>
+          </tr></thead><tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="lx-sec" id="health">Device health</h2>
+  <div class="lx-grid">
+    <div class="lx-card">
+      <h3>Battery voltage, hourly average</h3>
+      <p class="lx-note">Lowest reading in the period: <span data-source="summary" data-field="battery_v_min" data-row="0">—</span> V. Jumps back to 3.6 V look like recharges.</p>
+      <div class="lx-chart" id="chart-battery" data-source="hourly"></div>
+    </div>
+    <div class="lx-card">
+      <h3>Temperature, hourly average</h3>
+      <p class="lx-note">Tag sensor reading. Clear day/night cycle, warmest around midday.</p>
+      <div class="lx-chart" id="chart-temp" data-source="hourly"></div>
+    </div>
+  </div>
+
+  <h2 class="lx-sec" id="gps">GPS and movement</h2>
+  <div class="lx-grid">
+    <div class="lx-card">
+      <h3>Messages without a GPS fix, per day</h3>
+      <p class="lx-note">Share of each day's messages with HDOP 99 or no coordinates. Time-to-fix hit the 64 s limit on <span data-source="summary" data-field="ttf_over_60s" data-row="0">—</span> messages; the median for fixed messages is <span data-source="summary" data-field="ttf_median_s" data-row="0">—</span> s.</p>
+      <div class="lx-chart" id="chart-nofix" data-source="nofix_daily"></div>
+    </div>
+    <div class="lx-card">
+      <h3>Activity by hour of day</h3>
+      <p class="lx-note">Sum of the accelerometer (ACC) count across the period. <span id="hod-note"></span></p>
+      <div class="lx-chart" id="chart-hod" data-source="hod"></div>
+    </div>
+  </div>
+
+  <h2 class="lx-sec" id="behaviour">Behaviour: daily activity and movement</h2>
+  <div class="lx-panels">
+    <div class="lx-card" id="panel-a">
+      <h3>A. Daily activity profile (ACC)</h3>
+      <p class="lx-note">Mean accelerometer (ACC) count per message for each hour of the day, SAST, across all <span data-source="summary" data-field="messages" data-row="0">—</span> messages. This tag reports an ACC count rather than VeDBA in g.</p>
+      <div class="lx-chart lx-rose" id="chart-rose" data-source="acc_rose"></div>
+    </div>
+    <div class="lx-card" id="panel-b">
+      <h3>B. GPS movement and site use</h3>
+      <p class="lx-note">All <span data-source="summary" data-field="gps_fixes" data-row="0">—</span> valid fixes coloured by time of day, with the movement track between ~100 m cells. Fixes at the same spot are merged; dot size shows how many. Zoom and drag the map freely; hover a dot for its details.</p>
+      <div class="lx-zoom-btns" role="group" aria-label="Map view">
+        <button type="button" data-view="all">Whole range</button>
+        <button type="button" data-view="a">Site 1</button>
+        <button type="button" data-view="b" id="view-b">Site 2</button>
+      </div>
+      <div class="lx-chart lx-map" id="chart-map" data-source="fix_points track locations"></div>
+    </div>
+  </div>
+  <div class="lx-legend-card lx-card" id="behaviour-legend">
+    <div class="lx-leg-col">
+      <h4>GPS fixes (time of day, SAST)</h4>
+      <div id="leg-windows"></div>
+    </div>
+    <div class="lx-leg-col">
+      <h4>Map features</h4>
+      <div><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="var(--color-fg-muted)" stroke-width="1"/></svg> Movement track (coloured by time of day)</div>
+      <div><svg width="26" height="14" aria-hidden="true"><circle cx="13" cy="7" r="6" fill="var(--cds-chart-status-critical)" fill-opacity="0.18" stroke="var(--cds-chart-status-critical)" stroke-opacity="0.5"/></svg> Most-used sites, 150 m radius</div>
+      <div>Background map: OpenStreetMap, © OpenStreetMap contributors</div>
+      <div><svg width="26" height="14" aria-hidden="true"><path d="M13 1 L15 6 L20 6 L16 9 L17.5 14 L13 11 L8.5 14 L10 9 L6 6 L11 6 Z" fill="var(--color-fg)"/></svg> Site centre</div>
+    </div>
+    <div class="lx-leg-col lx-interp">
+      <h4>What the data shows</h4>
+      <p class="lx-interp-note">Worked out from this tag's data at every update.</p>
+      <ul id="interp"><li>—</li></ul>
+    </div>
+  </div>
+  <div class="lx-card" id="windows-card">
+    <h3>Activity by time window</h3>
+    <p class="lx-note">The same four windows as the example's legend, applied to this tag's summed ACC count. <b id="windows-take" data-source="act_windows" data-field="share_pct" data-where="window=Day%20%E2%80%93%20local%20activity" class="dash-skeleton">—</b>% of this tag's activity falls in the daytime window the example labels as resting, and <b id="windows-crep">—</b>% at dawn and dusk, when the example expects hunting.</p>
+    <div class="lx-tbl-wrap">
+      <table class="lx-tbl" id="tbl-windows" data-source="act_windows" data-row-key="window">
+        <thead><tr>
+          <th data-field="window">Window (example legend)</th>
+          <th data-field="hours_sast" class="lx-hide-narrow">Hours (SAST)</th>
+          <th data-field="example_expects" class="lx-hide-narrow">Example expects</th>
+          <th data-field="activity_sum" class="lx-num">ACC sum</th>
+          <th data-field="share_pct" class="lx-num">Share</th>
+          <th data-field="per_hour" class="lx-num">Per hour</th>
+          <th data-field="share_pct">&nbsp;</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="lx-card" id="locations">
+    <h3>Most visited locations</h3>
+    <p class="lx-note">Fixes grouped to a ~100 m grid (3 decimal places), top 10 cells. Latest position: <span data-source="summary" data-field="latest_lat" data-row="0">—</span>, <span data-source="summary" data-field="latest_lon" data-row="0">—</span>.</p>
+    <div class="lx-tbl-wrap">
+      <table class="lx-tbl" id="tbl-locs" data-source="locations" data-row-key="grid_cell">
+        <thead><tr>
+          <th data-field="grid_cell">Grid cell</th>
+          <th data-field="fixes" class="lx-num">Fixes</th>
+          <th data-field="first_seen_sast" class="lx-hide-narrow">First seen</th>
+          <th data-field="last_seen_sast">Last seen</th>
+          <th data-field="mean_lat" class="lx-num lx-hide-narrow">Mean lat</th>
+          <th data-field="mean_lon" class="lx-num lx-hide-narrow">Mean lon</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    Data: Field Signal export for Sigfox device <span data-meta="device">—</span>, recomputed every 10 minutes by a GitHub Actions job. Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+    Missing messages are gaps in the Sigfox sequence number. Times are SAST (UTC+2).
+  </footer>
+</div>
+<script>
+
+dash.calc('fix_rate', {
+  inputs: ['summary'],
+  title: 'GPS fix rate',
+  description: 'Messages with a valid GPS fix as a share of all received messages.',
+  fn: (summary) => [{ fix_pct: Math.round(Number(summary[0].gps_fixes) / Number(summary[0].messages) * 1000) / 10 }]
+});
+dash.calc('acc_rose', {
+  inputs: ['hod'],
+  title: 'Mean ACC per message by hour',
+  description: 'Summed ACC count divided by messages received, for each hour of the day (SAST).',
+  fn: (hod) => hod.map(r => ({ hour_sast: Number(r.hour_sast), mean_acc: Math.round(Number(r.activity_sum) / Number(r.messages) * 1000) / 1000, messages: Number(r.messages), activity_sum: Number(r.activity_sum) }))
+});
+dash.calc('act_windows', {
+  inputs: ['hod'],
+  title: 'Activity by example time window',
+  description: 'Sums the ACC count by hour of day into the four windows used in the example figure\u2019s legend.',
+  fn: (hod) => {
+    const wins = [
+      { window: 'Morning \u2013 hunting', hours_sast: '05:00\u201308:59', example_expects: 'Hunting (peak)', hrs: [5, 6, 7, 8] },
+      { window: 'Day \u2013 local activity', hours_sast: '09:00\u201316:59', example_expects: 'Resting near den', hrs: [9, 10, 11, 12, 13, 14, 15, 16] },
+      { window: 'Dusk \u2013 hunting', hours_sast: '17:00\u201319:59', example_expects: 'Hunting (peak)', hrs: [17, 18, 19] },
+      { window: 'Night \u2013 at den', hours_sast: '20:00\u201304:59', example_expects: 'Resting at den', hrs: [20, 21, 22, 23, 0, 1, 2, 3, 4] }
+    ];
+    const total = hod.reduce((s, r) => s + Number(r.activity_sum), 0);
+    return wins.map(w => {
+      const sum = hod.filter(r => w.hrs.includes(Number(r.hour_sast))).reduce((s, r) => s + Number(r.activity_sum), 0);
+      return { window: w.window, hours_sast: w.hours_sast, example_expects: w.example_expects, activity_sum: sum, share_pct: total ? Math.round(sum / total * 1000) / 10 : 0, per_hour: Math.round(sum / w.hrs.length * 10) / 10 };
+    });
+  }
+});
+dash.calc('nofix_daily', {
+  inputs: ['daily'],
+  title: 'No-fix share per day',
+  description: 'Each day’s messages without a GPS fix divided by its messages received.',
+  fn: (daily) => daily.filter(d => Number(d.messages) > 0).map(d => ({ date: d.date, nofix_pct: Math.round(Number(d.no_fix) / Number(d.messages) * 1000) / 10, messages: Number(d.messages), no_fix: Number(d.no_fix), ttf_median: d.ttf_s_median_fixed }))
+});
+
+const fInt = d3.format(',');
+const parseH = d3.utcParse('%Y-%m-%dT%H:%M');
+const parseD = d3.utcParse('%Y-%m-%d');
+const fDay = d3.utcFormat('%b %-d');
+const fDayH = d3.utcFormat('%b %-d, %H:00');
+const FAIL = '<div class="lx-fail"><i></i>Failed to load</div>';
+
+function prep(box, st) {
+  box.classList.toggle('dash-skeleton', st === 'loading');
+  if (st === 'error') { box.innerHTML = FAIL; return false; }
+  if (st !== 'ok') { box.innerHTML = ''; return false; }
+  return true;
+}
+
+function measure(svg, labels) {
+  const g = svg.append('g'); let w = 0;
+  labels.forEach(t => { const n = g.append('text').attr('class', 'lx-tick').text(t); w = Math.max(w, n.node().getComputedTextLength()); });
+  g.remove(); return w;
+}
+
+function tipOf(box) {
+  const t = document.createElement('div'); t.className = 'lx-tip'; box.appendChild(t); return t;
+}
+function placeTip(tip, box, px, py) {
+  tip.style.display = 'block';
+  const bw = box.clientWidth, tw = tip.offsetWidth;
+  let left = px + 12; if (left + tw > bw) left = px - tw - 12; if (left < 0) left = 0;
+  tip.style.left = left + 'px'; tip.style.top = Math.max(0, py - 40) + 'px';
+}
+function tipLines(tip, head, lines) {
+  tip.textContent = '';
+  const h = document.createElement('div'); h.className = 'lx-tip-h'; h.textContent = head; tip.appendChild(h);
+  lines.forEach(l => { const d = document.createElement('div'); d.textContent = l; tip.appendChild(d); });
+}
+
+function lineChart(box, rows, opt) {
+  box.innerHTML = '';
+  const W = Math.max(280, box.clientWidth), H = 220, m = { t: 10, r: 12, b: 26, l: 0 };
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const y = d3.scaleLinear(opt.yDomain || d3.extent(rows, d => d.y), [H - m.b, m.t]).nice();
+  const yt = y.ticks(4);
+  m.l = measure(svg, yt.map(opt.yFmt)) + 10;
+  const x = d3.scaleUtc(d3.extent(rows, d => d.x), [m.l, W - m.r]);
+  svg.append('g').selectAll('line').data(yt).join('line')
+    .attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d))
+    .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+  svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick')
+    .attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(opt.yFmt);
+  const nx = Math.max(2, Math.floor((W - m.l) / 80));
+  svg.append('g').attr('transform', `translate(0,${H - m.b})`)
+    .call(d3.axisBottom(x).ticks(nx).tickFormat(fDay).tickSizeOuter(0))
+    .attr('font-size', null).attr('font-family', null)
+    .call(g => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'))
+    .call(g => g.selectAll('.tick line').remove())
+    .call(g => g.selectAll('text').attr('class', 'lx-tick'));
+  if (opt.ref != null) {
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(opt.ref)).attr('y2', y(opt.ref))
+      .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4');
+  }
+  const pts = [];
+  rows.forEach((d, i) => { if (i && d.x - rows[i - 1].x > 3 * 3600e3) pts.push(null); pts.push(d); });
+  svg.append('path').datum(pts)
+    .attr('d', d3.line().defined(d => d).x(d => x(d.x)).y(d => y(d.y)))
+    .attr('fill', 'none').attr('stroke', opt.color).attr('stroke-width', 2)
+    .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  const dot = svg.append('circle').attr('r', 4).attr('fill', opt.color).style('display', 'none');
+  const tip = tipOf(box);
+  const bis = d3.bisector(d => d.x).center;
+  svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b)
+    .attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const [px] = d3.pointer(ev); const d = rows[bis(rows, x.invert(px))];
+      dot.style('display', null).attr('cx', x(d.x)).attr('cy', y(d.y));
+      tipLines(tip, fDayH(d.x) + ' SAST', opt.tip(d));
+      const s = box.clientWidth / W; placeTip(tip, box, x(d.x) * s, y(d.y) * s);
+    })
+    .on('pointerleave', () => { dot.style('display', 'none'); tip.style.display = 'none'; });
+}
+
+function barChart(box, rows, opt) {
+  box.innerHTML = '';
+  const W = Math.max(280, box.clientWidth), H = 220, m = { t: 10, r: 8, b: 26, l: 0 };
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const max = d3.max(rows, d => d3.sum(opt.stack, s => d[s.key])) || 1;
+  const y = d3.scaleLinear([0, opt.yMax || max], [H - m.b, m.t]).nice();
+  const yt = y.ticks(4);
+  m.l = measure(svg, yt.map(opt.yFmt)) + 10;
+  const x = d3.scaleBand(rows.map(d => d.k), [m.l, W - m.r]).padding(0.25);
+  svg.append('g').selectAll('line').data(yt).join('line')
+    .attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d))
+    .attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick')
+    .attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(opt.yFmt);
+  const lw = d3.max(rows, d => measure(svg, [opt.xFmt(d.k)])) + 8;
+  const every = Math.max(1, Math.ceil(lw / x.step()));
+  svg.append('g').selectAll('text').data(rows.filter((d, i) => i % every === 0)).join('text').attr('class', 'lx-tick')
+    .attr('x', d => x(d.k) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').text(d => opt.xFmt(d.k));
+  svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+  const bw = Math.min(32, x.bandwidth());
+  const off = (x.bandwidth() - bw) / 2;
+  const groups = svg.append('g').selectAll('g').data(rows).join('g');
+  opt.stack.forEach((s, si) => {
+    groups.append('rect')
+      .attr('x', d => x(d.k) + off).attr('width', bw)
+      .attr('y', d => y(d3.sum(opt.stack.slice(0, si + 1), t => d[t.key])))
+      .attr('height', d => y(d3.sum(opt.stack.slice(0, si), t => d[t.key])) - y(d3.sum(opt.stack.slice(0, si + 1), t => d[t.key])))
+      .attr('rx', si === opt.stack.length - 1 || opt.stack.length === 1 ? 3 : 0)
+      .attr('fill', s.color);
+  });
+  const tip = tipOf(box);
+  groups.append('rect').attr('x', d => x(d.k)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', H - m.t - m.b)
+    .attr('fill', 'transparent')
+    .on('pointerenter', function (ev, d) {
+      d3.select(this).attr('fill', 'var(--cds-chart-grid)').attr('fill-opacity', 0.5);
+      tipLines(tip, opt.tipHead(d), opt.tip(d));
+      const s = box.clientWidth / W; placeTip(tip, box, (x(d.k) + x.bandwidth()) * s, 60);
+    })
+    .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
+}
+
+function fillTable(tbl, st, rows, cols) {
+  const tb = tbl.querySelector('tbody'); tb.textContent = '';
+  tbl.classList.toggle('dash-skeleton', st === 'loading');
+  if (st !== 'ok') return;
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    cols.forEach(c => { const td = document.createElement('td'); if (c.num) td.className = 'lx-num'; if (c.narrow) td.className += ' lx-hide-narrow'; td.textContent = c.f ? c.f(r[c.k]) : r[c.k]; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+}
+
+
+const WINS = [
+  { key: 'Morning', label: 'Morning', hours: '05:00–08:59', from: 5, to: 9 },
+  { key: 'Day', label: 'Day', hours: '09:00–16:59', from: 9, to: 17 },
+  { key: 'Dusk', label: 'Dusk', hours: '17:00–19:59', from: 17, to: 20 },
+  { key: 'Night', label: 'Night', hours: '20:00–04:59', from: 20, to: 29 }
+];
+const winOf = h => WINS.find(w => (h >= w.from && h < w.to) || (h + 24 >= w.from && h + 24 < w.to));
+const winColor = k => dash.colors[[2, 0, 4, 5][WINS.findIndex(w => w.key === k)]];
+
+function drawLegend() {
+  const el = document.getElementById('leg-windows'); if (!el) return;
+  el.textContent = '';
+  WINS.forEach(w => {
+    const row = document.createElement('div');
+    const dot = document.createElement('span'); dot.className = 'lx-leg-dot'; dot.style.background = winColor(w.key);
+    const hrs = document.createElement('span'); hrs.className = 'lx-leg-hours'; hrs.textContent = w.hours;
+    const lab = document.createElement('span'); lab.textContent = w.label;
+    row.append(dot, hrs, lab); el.appendChild(row);
+  });
+}
+
+function drawRose(box, rows) {
+  box.innerHTML = '';
+  const W = Math.max(280, box.clientWidth), S = Math.min(W, 380), H = S;
+  const cx = W / 2, cy = H / 2, R = S / 2 - 34;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const max = d3.max(rows, d => d.mean_acc) || 1;
+  const r = d3.scaleLinear([0, max], [0, R]).nice();
+  const ticks = r.ticks(4).filter(t => t > 0);
+  const g = svg.append('g').attr('transform', `translate(${cx},${cy})`);
+  g.selectAll('circle.ring').data(ticks).join('circle').attr('class', 'ring').attr('r', d => r(d))
+    .attr('fill', 'none').attr('stroke', 'var(--cds-chart-grid)');
+  g.append('circle').attr('r', R).attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)').attr('stroke-width', 1.5);
+  [0, 3, 6, 9, 12, 15, 18, 21].forEach(h => {
+    const a = h / 24 * 2 * Math.PI;
+    g.append('line').attr('x1', 0).attr('y1', 0).attr('x2', Math.sin(a) * R).attr('y2', -Math.cos(a) * R)
+      .attr('stroke', 'var(--cds-chart-grid)');
+    g.append('text').attr('class', 'lx-tick').attr('x', Math.sin(a) * (R + 16)).attr('y', -Math.cos(a) * (R + 16))
+      .attr('dy', '0.32em').attr('text-anchor', 'middle').text(String(h).padStart(2, '0'));
+  });
+  const arc = d3.arc().innerRadius(0).outerRadius(d => r(d.mean_acc)).cornerRadius(2)
+    .startAngle(d => (d.hour_sast - 0.45) / 24 * 2 * Math.PI).endAngle(d => (d.hour_sast + 0.45) / 24 * 2 * Math.PI);
+  const tip = tipOf(box);
+  g.selectAll('path.wedge').data(rows).join('path').attr('class', 'wedge').attr('d', arc)
+    .attr('fill', d => winColor(winOf(d.hour_sast).key)).attr('fill-opacity', 0.85)
+    .on('pointerenter', function (ev, d) {
+      d3.select(this).attr('fill-opacity', 1);
+      tipLines(tip, `${String(d.hour_sast).padStart(2, '0')}:00 SAST · ${winOf(d.hour_sast).label}`,
+        [`Mean ACC ${d3.format('.2f')(d.mean_acc)} per message`, `ACC sum ${fInt(d.activity_sum)} over ${fInt(d.messages)} messages`]);
+      const [px, py] = d3.pointer(ev, box); placeTip(tip, box, px, py);
+    })
+    .on('pointerleave', function () { d3.select(this).attr('fill-opacity', 0.85); tip.style.display = 'none'; });
+  ticks.forEach(t => g.append('text').attr('class', 'lx-tick').attr('x', 4).attr('y', -r(t) - 3).text(d3.format('.1f')(t)));
+  svg.append('text').attr('class', 'lx-tick').attr('x', 4).attr('y', 12).text('Radius: mean ACC per message');
+}
+
+// Distance in metres between two lat/lon points.
+const metres = (a, b) => { const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) * r / 2), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371e3; };
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+// Site 1 is the busiest ~100 m cell; Site 2 the busiest cell more than 500 m away from it.
+function pickSites(rows) {
+  const c = rows.map(d => ({ lat: Number(d.mean_lat), lon: Number(d.mean_lon), fixes: Number(d.fixes) })).filter(d => Number.isFinite(d.lat));
+  if (!c.length) return [];
+  const s2 = c.slice(1).find(d => metres(c[0], d) > 500);
+  return [c[0], s2].filter(Boolean).map((d, i) => ({ ...d, name: `Site ${i + 1}` }));
+}
+// Plain-language findings, recomputed from this tag's own data on every update.
+function interpret(fp, locs, hod) {
+  const out = [], sites = pickSites(locs);
+  const pts = fp.map(d => ({ lat: +d.lat, lon: +d.lon, w: d.window, n: +d.fixes }));
+  const total = d3.sum(pts, p => p.n);
+  if (!sites.length || !total) return ['No GPS fixes in this period.'];
+  const near = (p, s) => metres(p, s) <= 300;
+  const night = pts.filter(p => p.w === 'Night'), nN = d3.sum(night, p => p.n);
+  if (nN) out.push(`At night (20:00–05:00) ${pct(d3.sum(night.filter(p => near(p, sites[0])), p => p.n), nN)}% of fixes are within 300 m of Site 1${sites[1] ? `, and ${pct(d3.sum(night.filter(p => near(p, sites[1])), p => p.n), nN)}% near Site 2` : ''}.`);
+  if (sites[1]) {
+    const day = pts.filter(p => p.w === 'Day'), dN = d3.sum(day, p => p.n);
+    out.push(`Site 2 is ${d3.format('.1f')(metres(sites[0], sites[1]) / 1000)} km from Site 1.${dN ? ` By day (09:00–17:00), ${pct(d3.sum(day.filter(p => near(p, sites[0])), p => p.n), dN)}% of fixes are at Site 1 and ${pct(d3.sum(day.filter(p => near(p, sites[1])), p => p.n), dN)}% at Site 2.` : ''}`);
+  } else out.push('All the busiest locations lie within 500 m of each other, so there is one main site.');
+  const away = d3.sum(pts.filter(p => !sites.some(s => near(p, s))), p => p.n);
+  out.push(`${pct(away, total)}% of fixes are more than 300 m from ${sites[1] ? 'both sites' : 'Site 1'}.`);
+  const act = hod.map(r => ({ h: +r.hour_sast, a: +r.activity_sum })), aT = d3.sum(act, r => r.a);
+  if (aT) {
+    const top = act.slice().sort((x, y) => y.a - x.a).filter(r => r.a > 0).slice(0, 2).map(r => String(r.h).padStart(2, '0') + ':00');
+    const crep = d3.sum(act.filter(r => (r.h >= 5 && r.h < 9) || (r.h >= 17 && r.h < 20)), r => r.a);
+    out.push(`Activity (ACC) is highest around ${top.join(' and ')} SAST. Dawn and dusk hold ${pct(crep, aT)}% of it${pct(crep, aT) >= 40 ? ', close to the hunting pattern in the example' : ', unlike the dawn/dusk hunting pattern in the example'}.`);
+  } else out.push('The accelerometer recorded no activity in this period.');
+  return out;
+}
+
+const mapState = { view: 'all', map: null, layer: null, views: {}, first: true };
+const cssColor = v => { const m = /^var\((--[^)]+)\)$/.exec(v); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const STAR = '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1 L12.4 7.2 L19 7.4 L13.8 11.4 L15.6 18 L10 14.2 L4.4 18 L6.2 11.4 L1 7.4 L7.6 7.2 Z" fill="#17201b"/></svg>';
+function setPressed() { document.querySelectorAll('.lx-zoom-btns button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === mapState.view))); }
+function drawMap(box, pts, track, sites) {
+  if (typeof L === 'undefined') { box.innerHTML = '<div class="lx-fail"><i></i>Map library failed to load</div>'; return; }
+  if (!mapState.map) {
+    box.innerHTML = '';
+    const map = mapState.map = L.map(box, { zoomSnap: 0.5, scrollWheelZoom: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+    L.control.scale({ imperial: false }).addTo(map);
+    const North = L.Control.extend({ options: { position: 'topright' }, onAdd() { const d = L.DomUtil.create('div', 'lx-north'); d.innerHTML = '<svg width="22" height="34" viewBox="-11 -22 22 34" role="img" aria-label="North"><text y="-11" text-anchor="middle">N</text><path d="M0,-7 L7,12 L0,7 L-7,12 Z"/></svg>'; return d; } });
+    new North().addTo(map);
+    mapState.layer = L.layerGroup().addTo(map);
+    document.querySelectorAll('.lx-zoom-btns button').forEach(btn => btn.addEventListener('click', () => {
+      mapState.view = btn.dataset.view; setPressed();
+      const bnd = mapState.views[mapState.view]; if (bnd) map.flyToBounds(bnd, { padding: [24, 24], duration: 0.6 });
+    }));
+  } else mapState.map.invalidateSize();
+  const lay = mapState.layer; lay.clearLayers();
+  const crit = cssColor('var(--cds-chart-status-critical)');
+  track.slice(1).forEach((b, i) => { const a = track[i]; L.polyline([[a.lat, a.lon], [b.lat, b.lon]], { color: cssColor(winColor(b.window)), weight: 2, opacity: 0.6, interactive: false }).addTo(lay); });
+  sites.forEach(s => L.circle([s.lat, s.lon], { radius: 150, color: crit, weight: 1, opacity: 0.6, fillColor: crit, fillOpacity: 0.12, interactive: false }).addTo(lay));
+  const rN = d3.scaleSqrt([1, d3.max(pts, d => d.fixes) || 1], [3, 11]);
+  pts.slice().sort((a, b) => b.fixes - a.fixes).forEach(d => {
+    L.circleMarker([d.lat, d.lon], { radius: rN(d.fixes), color: '#ffffff', weight: 1, fillColor: cssColor(winColor(d.window)), fillOpacity: 0.85 })
+      .bindTooltip(`<b>${esc(d.window)}</b> · ${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}<br>${fInt(d.fixes)} fix${d.fixes === 1 ? '' : 'es'} here · ACC sum ${fInt(d.acc)}`, { direction: 'top', offset: [0, -4] })
+      .addTo(lay);
+  });
+  sites.forEach(s => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: 'lx-star', html: STAR, iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false, interactive: false })
+    .bindTooltip(`${esc(s.name)} · ${fInt(s.fixes)} fixes`, { permanent: true, direction: 'right', offset: [10, 0], className: 'lx-site-label' }).addTo(lay));
+  if (pts.length) mapState.views.all = L.latLngBounds(pts.map(d => [d.lat, d.lon]));
+  sites.forEach((s, i) => { const d = 0.0025; mapState.views[i === 0 ? 'a' : 'b'] = L.latLngBounds([s.lat - d, s.lon - d * 1.12], [s.lat + d, s.lon + d * 1.12]); });
+  setPressed();
+  if (mapState.first && mapState.views.all) { mapState.first = false; mapState.map.fitBounds(mapState.views[mapState.view] || mapState.views.all, { padding: [24, 24] }); }
+}
+
+dash.onData(() => {
+  const sw = document.getElementById('sw-rec'); if (sw) sw.style.background = dash.colors[0];
+
+  // headline figures
+  const S = dash.data('summary'), F = dash.data('fix_rate');
+  document.querySelectorAll('[data-source="summary"][data-field], [data-source="fix_rate"][data-field]').forEach(el => {
+    const src = el.dataset.source === 'summary' ? S : F;
+    if (src.status !== 'ok' || !src.data.length) { el.textContent = '—'; el.classList.toggle('dash-skeleton', src.status === 'loading'); return; }
+    el.classList.remove('dash-skeleton');
+    const v = src.data[0][el.dataset.field];
+    const n = Number(v);
+    el.textContent = (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v)) ? v : (Number.isFinite(n) && Math.abs(n) >= 1000 ? fInt(n) : String(v));
+  });
+
+  const lead = document.getElementById('status-lead');
+  if (lead && S.status === 'ok' && S.data.length) {
+    const lastUtc = Date.parse(S.data[0].last_message_sast.replace(' ', 'T') + ':00+02:00');
+    const h = (Date.now() - lastUtc) / 3600e3;
+    lead.textContent = h > 2 ? `Silent for ${h >= 48 ? Math.floor(h / 24) + ' days' : Math.floor(h) + ' h'}` : 'Still reporting';
+  }
+  const tt = document.getElementById('tower-text');
+  if (tt) { if (S.status === 'ok' && S.data.length) { const n = Number(S.data[0].tower_readings_above_minus140); tt.textContent = n === 0 ? 'no message' : `${fInt(n)} messages`; tt.classList.remove('dash-skeleton'); } else tt.textContent = '—'; }
+
+  // daily received vs missing
+  const D = dash.data('daily'); const boxD = document.getElementById('chart-daily');
+  if (prep(boxD, D.status)) {
+    const rows = D.data.map(d => ({ k: d.date, rec: Number(d.messages), miss: Number(d.missing_before) }));
+    barChart(boxD, rows, {
+      stack: [{ key: 'rec', color: dash.colors[0] }, { key: 'miss', color: 'var(--cds-chart-status-critical)' }],
+      yFmt: d3.format(','), xFmt: k => fDay(parseD(k)),
+      tipHead: d => fDay(parseD(d.k)),
+      tip: d => [`Received ${fInt(d.rec)}`, `Missing ${fInt(d.miss)}`]
+    });
+  }
+
+  // hourly battery + temp
+  const Hh = dash.data('hourly');
+  const hrows = Hh.status === 'ok' ? Hh.data.map(d => ({ x: parseH(d.hour_sast), bat: Number(d.battery_v_avg), t: Number(d.temp_c_avg), n: Number(d.messages) })).sort((a, b) => a.x - b.x) : [];
+  const boxB = document.getElementById('chart-battery');
+  if (prep(boxB, Hh.status)) {
+    lineChart(boxB, hrows.map(d => ({ ...d, y: d.bat })), {
+      color: dash.colors[0], yDomain: [2.8, 3.7], yFmt: v => d3.format('.1f')(v) + ' V',
+      tip: d => [`${d3.format('.2f')(d.bat)} V avg`, `${d.n} messages`]
+    });
+  }
+  const boxT = document.getElementById('chart-temp');
+  if (prep(boxT, Hh.status)) {
+    lineChart(boxT, hrows.map(d => ({ ...d, y: d.t })), {
+      color: dash.colors[1], yDomain: [0, 25], yFmt: v => v + '°C',
+      tip: d => [`${d3.format('.1f')(d.t)} °C avg`, `${d.n} messages`]
+    });
+  }
+
+  // no-fix share per day
+  const NF = dash.data('nofix_daily'); const boxN = document.getElementById('chart-nofix');
+  if (prep(boxN, NF.status)) {
+    const rows = NF.data.map(d => ({ k: d.date, v: Number(d.nofix_pct), n: d.messages, nf: d.no_fix, ttf: d.ttf_median }));
+    barChart(boxN, rows, {
+      stack: [{ key: 'v', color: dash.colors[2] }], yMax: 100,
+      yFmt: v => v + '%', xFmt: k => fDay(parseD(k)),
+      tipHead: d => fDay(parseD(d.k)),
+      tip: d => [`${d3.format('.1f')(d.v)}% without fix`, `${fInt(d.nf)} of ${fInt(d.n)} messages`, `Median TTF ${d.ttf} s`]
+    });
+  }
+
+  // activity by hour of day
+  const HD = dash.data('hod'); const boxH = document.getElementById('chart-hod');
+  if (prep(boxH, HD.status)) {
+    const rows = HD.data.map(d => ({ k: d.hour_sast, v: Number(d.activity_sum), n: Number(d.messages), t: Number(d.temp_c_avg) }));
+    barChart(boxH, rows, {
+      stack: [{ key: 'v', color: dash.colors[3] }],
+      yFmt: d3.format(','), xFmt: k => String(k).padStart(2, '0'),
+      tipHead: d => String(d.k).padStart(2, '0') + ':00 SAST',
+      tip: d => [`ACC sum ${fInt(d.v)}`, `${fInt(d.n)} messages`, `Avg ${d3.format('.1f')(d.t)} °C`]
+    });
+  }
+
+  // panel A and B
+  drawLegend();
+  const RO = dash.data('acc_rose'); const boxR = document.getElementById('chart-rose');
+  if (prep(boxR, RO.status)) drawRose(boxR, RO.data);
+  const FP = dash.data('fix_points'), TR = dash.data('track'), LC = dash.data('locations');
+  const boxM = document.getElementById('chart-map');
+  const mst = [FP, TR, LC].some(d => d.status === 'error') ? 'error' : [FP, TR, LC].every(d => d.status === 'ok') ? 'ok' : 'loading';
+  if (mapState.map && mst !== 'ok') { /* keep the existing map while a refresh is pending */ } else if (prep(boxM, mst)) {
+    const pts = FP.data.map(d => ({ lat: Number(d.lat), lon: Number(d.lon), window: d.window, fixes: Number(d.fixes), acc: Number(d.acc_sum) }));
+    const track = TR.data.map(d => ({ lat: Number(d.lat), lon: Number(d.lon), window: d.window }));
+    const sites = pickSites(LC.data);
+    document.getElementById('view-b').hidden = sites.length < 2;
+    drawMap(boxM, pts, track, sites);
+  }
+  // generated interpretation
+  const ul = document.getElementById('interp');
+  if ([FP, LC, HD].every(d => d.status === 'ok')) ul.innerHTML = interpret(FP.data, LC.data, HD.data).map(t => `<li>${t}</li>`).join('');
+  const hn = document.getElementById('hod-note');
+  if (HD.status === 'ok') { const tot = d3.sum(HD.data, r => +r.activity_sum), dayA = d3.sum(HD.data.filter(r => +r.hour_sast >= 7 && +r.hour_sast < 17), r => +r.activity_sum); hn.textContent = tot ? `${pct(dayA, tot)}% of it falls between 07:00 and 17:00 SAST.` : 'No activity recorded in this period.'; }
+
+  // example comparison
+  const AW = dash.data('act_windows');
+  const wt = document.getElementById('windows-take');
+  if (AW.status === 'ok') {
+    wt.classList.remove('dash-skeleton');
+    const day = AW.data.find(r => r.window === 'Day \u2013 local activity');
+    wt.textContent = day ? String(day.share_pct) : '\u2014';
+    document.getElementById('windows-crep').textContent = String(Math.round(AW.data.filter(r => /^(Morning|Dusk)/.test(r.window)).reduce((t, r) => t + Number(r.share_pct), 0) * 10) / 10);
+  } else { wt.textContent = '\u2014'; wt.classList.toggle('dash-skeleton', AW.status === 'loading'); }
+  const twin = document.getElementById('tbl-windows');
+  fillTable(twin, AW.status, AW.data, [
+    { k: 'window' }, { k: 'hours_sast', narrow: true }, { k: 'example_expects', narrow: true },
+    { k: 'activity_sum', num: true, f: v => fInt(Number(v)) },
+    { k: 'share_pct', num: true, f: v => d3.format('.1f')(Number(v)) + '%' },
+    { k: 'per_hour', num: true, f: v => d3.format('.1f')(Number(v)) },
+    { k: 'share_pct', f: () => '' }
+  ]);
+  if (AW.status === 'ok') {
+    twin.querySelectorAll('tbody tr').forEach((tr, i) => {
+      const cell = tr.lastElementChild; cell.style.width = '30%';
+      const bar = document.createElement('div'); bar.className = 'lx-bar';
+      bar.style.width = Math.max(1, Number(AW.data[i].share_pct)) + '%';
+      bar.style.background = AW.data[i].window.startsWith('Day') ? dash.colors[3] : 'var(--cds-chart-muted)';
+      cell.appendChild(bar);
+    });
+  }
+
+  // tables
+  const G = dash.data('gaps');
+  fillTable(document.getElementById('tbl-gaps'), G.status, G.data, [
+    { k: 'from_sast' }, { k: 'to_sast' },
+    { k: 'gap_minutes', num: true, f: v => fInt(Number(v)) },
+    { k: 'seq_skipped', num: true, f: v => fInt(Number(v)) }
+  ]);
+  const L = dash.data('locations');
+  fillTable(document.getElementById('tbl-locs'), L.status, L.data, [
+    { k: 'grid_cell' }, { k: 'fixes', num: true, f: v => fInt(Number(v)) },
+    { k: 'first_seen_sast', narrow: true }, { k: 'last_seen_sast' },
+    { k: 'mean_lat', num: true, narrow: true }, { k: 'mean_lon', num: true, narrow: true }
+  ]);
+});
+
+dash.start();
+</script>
+</body>
+</html>

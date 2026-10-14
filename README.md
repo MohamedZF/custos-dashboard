@@ -1,10 +1,12 @@
-# Custos 11.5SAC dashboard
+# Custos tag dashboards
 
-A password-protected web page showing the health, message delivery and movement of Sigfox tag **Custos 11.5SAC (3B4D874)**. A GitHub Actions job signs in to Field Signal every 10 minutes, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
+A password-protected website for Custos Sigfox tags: a homepage with a button for each tag, and a dashboard per tag showing health, message delivery, activity and movement. A GitHub Actions job signs in to Field Signal every 10 minutes, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
 
 ```
-site/index.html          the page (charts, live OpenStreetMap map, reloads its data every 10 min)
-scripts/update.mjs       signs in to Field Signal, exports the tag's last 35 days, writes site data
+site/index.html          homepage: one card per tag with its status, links to the tag's dashboard
+site/tag.html            a tag's dashboard (tag.html?id=SIGFOX_ID): charts, live OpenStreetMap map
+site/lock.js, common.css password lock and styles shared by both pages
+scripts/update.mjs       signs in to Field Signal, exports each tag's last 35 days, writes encrypted data
 .github/workflows/       runs the script every 10 minutes and deploys to GitHub Pages
 test/mock-server.mjs     a stand-in Field Signal for testing the script without the real site
 ```
@@ -30,29 +32,41 @@ After that it updates by itself every 10 minutes.
 - **60-day rule.** GitHub pauses scheduled workflows in public repositories after 60 days without any commits. GitHub emails a warning first; re-enable it with one click under *Actions*, or push any small change.
 - **Password.** The script encrypts all data (AES-256-GCM, key from `SITE_PASSWORD` via PBKDF2-SHA256, 600,000 rounds) before publishing, and the page decrypts it in the browser. Without the password, the published files are unreadable; only the page layout is public. Use a long password (four or more random words), because someone who downloads the encrypted file can try passwords offline. "Remember on this device" stores the derived key in the browser until you press **Lock**.
 - **Changing the password.** Update the `SITE_PASSWORD` secret and run the workflow. Anyone who ticked "Remember on this device" is asked for the new password.
-- **No password.** If `SITE_PASSWORD` is missing, the run fails instead of publishing location data openly. To publish without a password on purpose, set `ALLOW_PUBLIC: '1'` in the workflow's `env:` block.
+- **No password.** If `SITE_PASSWORD` is missing, the run fails instead of publishing location data openly.
+- **One password for everything.** The same password opens the homepage and every tag. Unlocking once carries over to the other pages in that browser tab; **Lock** forgets it everywhere.
 - **Map.** The background map loads live from OpenStreetMap (© OpenStreetMap contributors).
 
-## Change the tag or the time range
+## Add or remove a tag
+
+Edit `TAGS` in `.github/workflows/update.yml`, one tag per line as `SIGFOX_ID=Name shown on the site`:
+
+```yaml
+          TAGS: |
+            3B4D874=Custos 11.5SAC
+            3B4D876=Custos 11-4 SAC
+```
+
+Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the period shows on the homepage as "No messages" with no dashboard link.
+
+## Other settings
 
 Set these in the workflow's `env:` block:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DEVICE_ID` | `3B4D874` | Sigfox device ID |
-| `DEVICE_NAME` | `Custos 11.5SAC` | Name shown in the data |
+| `TAGS` | `3B4D874=Custos 11.5SAC` | Tags to publish, see above |
 | `DAYS` | `35` | How many days of history to include |
 | `FIELD_SIGNAL_URL` | the Field Signal site | Base URL |
-| `ALLOW_PUBLIC` | unset | `1` publishes unencrypted data when no `SITE_PASSWORD` is set |
 
-The page's heading and interpretation notes are written for 11.5SAC; edit `site/index.html` if you point it at another tag.
+The "What the data shows" notes on each dashboard are worked out from that tag's data at every update (main sites, night-time site use, activity peaks), so they stay correct for any tag.
 
 ## Run it on your own machine
 
 ```bash
 # test against the stand-in server (no passcode needed)
 node test/mock-server.mjs &
-FIELD_SIGNAL_URL=http://localhost:8787 FIELD_SIGNAL_PASSCODE=test-pass SITE_PASSWORD=test OUT_DIR=site/data node scripts/update.mjs
+FIELD_SIGNAL_URL=http://localhost:8787 FIELD_SIGNAL_PASSCODE=test-pass SITE_PASSWORD=test \
+  TAGS='3B4D874=Custos 11.5SAC;3B4D876=Custos 11-4 SAC' OUT_DIR=site/data node scripts/update.mjs
 python3 -m http.server -d site 8000      # open http://localhost:8000, password: test
 
 # or against the real site

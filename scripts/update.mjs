@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Fetches Custos tag data from Field Signal and writes the dashboard's data files.
-// Env: FIELD_SIGNAL_PASSCODE (required), FIELD_SIGNAL_URL, DEVICE_ID, DEVICE_NAME, OUT_DIR, DAYS
+// Env: FIELD_SIGNAL_PASSCODE, SITE_PASSWORD (required), FIELD_SIGNAL_URL, TAGS, OUT_DIR, DAYS
+// TAGS lists the tags to publish, one per line or separated by ';', as  DEVICE_ID=Display name
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { webcrypto as wc } from 'node:crypto';
@@ -8,29 +9,38 @@ import { webcrypto as wc } from 'node:crypto';
 const BASE = (process.env.FIELD_SIGNAL_URL || 'https://field-signal-sigfox.johanm226618.chatgpt.site').replace(/\/$/, '');
 const PASSCODE = (process.env.FIELD_SIGNAL_PASSCODE || '').trim();
 const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
-const ALLOW_PUBLIC = process.env.ALLOW_PUBLIC === '1';
-const DEV = process.env.DEVICE_ID || '3B4D874';
-const NAME = process.env.DEVICE_NAME || 'Custos 11.5SAC';
+const TAGS = (process.env.TAGS || '3B4D874=Custos 11.5SAC').split(/[;\n]/).map(t => t.trim()).filter(Boolean).map(t => {
+  const [id, ...n] = t.split('='); return { id: id.trim().toUpperCase(), name: (n.join('=').trim() || id.trim()) };
+});
 const OUT = process.env.OUT_DIR || '_site/data';
 const DAYS = Number(process.env.DAYS || 35);
 const UA = 'custos-dashboard-updater/1.0 (+GitHub Actions)';
 
 function fail(msg) { console.error('ERROR: ' + msg); if (process.env.GITHUB_ACTIONS) console.log('::error::' + msg); process.exit(1); }
 if (!PASSCODE) fail('FIELD_SIGNAL_PASSCODE is not set. Add it as a repository secret.');
-if (!SITE_PASSWORD && !ALLOW_PUBLIC) fail('SITE_PASSWORD is not set. Add it as a repository secret so the published data is encrypted.');
+if (!TAGS.length || TAGS.some(t => !/^[0-9A-F]{6,8}$/.test(t.id))) fail('TAGS must list Sigfox device IDs as  ID=Name  (got: ' + (process.env.TAGS || '') + ')');
+if (!SITE_PASSWORD) fail('SITE_PASSWORD is not set. Add it as a repository secret so the published data is encrypted.');
 
 // The page derives the same key from the visitor's password: PBKDF2-SHA256 (600k rounds) -> AES-256-GCM.
-// The salt is fixed per device so a browser that remembers the key keeps working across updates; the IV is random per publish.
+// One fixed site-wide salt, so a single password (and a remembered key) opens every tag and survives updates.
+// The IV is random for every file and every publish.
 const KDF_ITERATIONS = 600000;
-async function encrypt(plaintext, password, device) {
-  const enc = new TextEncoder();
-  const salt = new Uint8Array(await wc.subtle.digest('SHA-256', enc.encode('custos-dashboard/v1/' + device))).slice(0, 16);
-  const base = await wc.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  const key = await wc.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: KDF_ITERATIONS }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+const enc = new TextEncoder();
+const b64 = u => Buffer.from(u).toString('base64');
+let saltB, keyP;
+async function siteKey() {
+  if (!keyP) keyP = (async () => {
+    saltB = new Uint8Array(await wc.subtle.digest('SHA-256', enc.encode('custos-dashboard/v2/site'))).slice(0, 16);
+    const base = await wc.subtle.importKey('raw', enc.encode(SITE_PASSWORD), 'PBKDF2', false, ['deriveKey']);
+    return wc.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: saltB, iterations: KDF_ITERATIONS }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  })();
+  return keyP;
+}
+async function encrypt(obj) {
+  const key = await siteKey();
   const iv = wc.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await wc.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext)));
-  const b64 = u => Buffer.from(u).toString('base64');
-  return { v: 1, kdf: 'PBKDF2-SHA256', iterations: KDF_ITERATIONS, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  const ct = new Uint8Array(await wc.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(obj))));
+  return JSON.stringify({ v: 2, kdf: 'PBKDF2-SHA256', iterations: KDF_ITERATIONS, salt: b64(saltB), iv: b64(iv), ct: b64(ct) }) + '\n';
 }
 
 async function signIn() {
@@ -55,7 +65,7 @@ async function signIn() {
   return cookies.join('; ');
 }
 
-async function exportCsv(cookie) {
+async function exportCsv(cookie, DEV) {
   const now = Date.now() + 2 * 3600e3;
   const to = new Date(now).toISOString().slice(0, 10);
   const from = new Date(now - DAYS * 86400e3).toISOString().slice(0, 10);
@@ -68,8 +78,8 @@ async function exportCsv(cookie) {
 }
 
 // Same calculations as the Claude dashboard's refresh, so both show identical numbers.
-function compute(text) {
-  if (text.trim().split('\n').length < 2) fail('Export contained no messages for device ' + DEV);
+function compute(text, DEV, NAME) {
+  if (text.trim().split('\n').length < 2) return null;
   const rows = text.trim().split('\n').slice(1).map(l => l.replace(/\r$/, '').slice(1, -1).split('","'));
   const P = rows.map(r => { const s = new Date(new Date(r[2]).getTime() + 2 * 3600e3); const iso = s.toISOString(); return {
     sast: iso.slice(0, 16).replace('T', ' '), day: iso.slice(0, 10), hr: s.getUTCHours(), hk: iso.slice(0, 13), utc: r[2],
@@ -122,17 +132,22 @@ function compute(text) {
 }
 
 const cookie = await signIn();
-const csv = await exportCsv(cookie);
-const { out, P, first, last } = compute(csv);
-if (!P.length) fail('Export contained no messages for device ' + DEV);
 await mkdir(OUT, { recursive: true });
-const meta = { generatedAt: new Date().toISOString(), device: DEV, name: NAME, messages: P.length, firstMessageSast: first.sast, lastMessageSast: last.sast };
-if (SITE_PASSWORD) {
-  const bundle = await encrypt(JSON.stringify({ meta, files: out }), SITE_PASSWORD, DEV);
-  await writeFile(join(OUT, 'data.enc.json'), JSON.stringify(bundle) + '\n');
-  console.log(`Wrote encrypted data to ${OUT}/data.enc.json: ${P.length} messages, last ${last.sast} SAST`);
-} else {
-  for (const [name, content] of Object.entries(out)) await writeFile(join(OUT, name), content);
-  await writeFile(join(OUT, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
-  console.log(`Wrote ${Object.keys(out).length + 1} unencrypted files to ${OUT} (ALLOW_PUBLIC=1): ${P.length} messages, last ${last.sast} SAST`);
+const generatedAt = new Date().toISOString();
+const index = [];
+for (const tag of TAGS) {
+  const r = compute(await exportCsv(cookie, tag.id), tag.id, tag.name);
+  if (!r) { console.log(`${tag.name} (${tag.id}): no messages in the last ${DAYS} days`); index.push({ id: tag.id, name: tag.name, messages: 0 }); continue; }
+  const { out, P, first, last } = r;
+  const S = Object.fromEntries(Object.entries(d3row(out['summary.csv'])));
+  index.push({ id: tag.id, name: tag.name, messages: P.length, first_message_sast: first.sast, last_message_sast: last.sast, last_message_utc: last.utc,
+    delivery_pct: S.delivery_pct, battery_v_latest: S.battery_v_latest, gps_fixes: S.gps_fixes, temp_c_latest: last.temp, msgs_with_activity: S.msgs_with_activity });
+  const meta = { generatedAt, device: tag.id, name: tag.name, messages: P.length, firstMessageSast: first.sast, lastMessageSast: last.sast, days: DAYS };
+  await writeFile(join(OUT, `tag-${tag.id}.enc.json`), await encrypt({ meta, files: out }));
+  console.log(`${tag.name} (${tag.id}): ${P.length} messages, last ${last.sast} SAST`);
 }
+const home = { generatedAt, days: DAYS, tags: index };
+await writeFile(join(OUT, 'tags.enc.json'), await encrypt(home));
+console.log(`Wrote encrypted data for ${index.length} tag(s) to ${OUT}`);
+
+function d3row(csvText) { const [h, v] = csvText.trim().split('\n'); const ks = h.split(','), vs = v.split(','); return Object.fromEntries(ks.map((k, i) => [k, isNaN(+vs[i]) || vs[i] === '' ? vs[i] : +vs[i]])); }

@@ -1,0 +1,67 @@
+/* Layout: one centred column of cards, figures first, map and behaviour below. */
+:root {
+  --color-bg: #f5f6f2; --color-panel: #ffffff; --color-fg: #17201b; --color-fg-muted: #5b665f; --color-border-line: #dde2db;
+  --color-ok: #1d7a46; --color-warn: #9a5b00; --color-bad: #b42318;
+  --s1: #2860c8; --s2: #c2410c; --s3: #c08400; --s4: #0f8a6a; --s5: #c8364f; --s6: #6b4bc8; --s7: #4a7a1c; --s8: #8a5a2b;
+  --font-anthropic-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-anthropic-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --cds-font-size-caption: .78rem; --cds-font-size-body: .92rem; --cds-font-size-heading: 1.02rem; --cds-font-size-title: 1.85rem;
+  --cds-font-weight-medium: 600;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 14px; --cds-gap-lg: 22px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 14px; --cds-pad-lg: 18px; --cds-radius: 8px; --cds-dur-slow: 400ms;
+  --cds-chart-grid: color-mix(in srgb, var(--color-fg) 8%, transparent);
+  --cds-chart-axis: color-mix(in srgb, var(--color-fg) 30%, transparent);
+  --cds-chart-reference: color-mix(in srgb, var(--color-fg) 45%, transparent);
+  --cds-chart-muted: color-mix(in srgb, var(--color-fg) 22%, transparent);
+  --cds-chart-status-critical: var(--color-bad);
+  --cds-surface-popover: var(--color-panel); --cds-border: var(--color-border-line); --cds-text-secondary: var(--color-fg-muted);
+  --cds-shadow-popover: 0 6px 20px rgba(16, 24, 20, .12);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --color-bg: #0f1412; --color-panel: #161d1a; --color-fg: #e7ece9; --color-fg-muted: #9aa59f; --color-border-line: #2a332f;
+  --color-ok: #4cc488; --color-warn: #f0b44c; --color-bad: #f0705f;
+  --s1: #6f9ef0; --s2: #f08a5d; --s3: #e8b941; --s4: #3cc39d; --s5: #f07088; --s6: #a48af0; --s7: #8fc45a; --s8: #d19a64;
+  --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --color-bg: #0f1412; --color-panel: #161d1a; --color-fg: #e7ece9; --color-fg-muted: #9aa59f; --color-border-line: #2a332f;
+  --color-ok: #4cc488; --color-warn: #f0b44c; --color-bad: #f0705f;
+  --s1: #6f9ef0; --s2: #f08a5d; --s3: #e8b941; --s4: #3cc39d; --s5: #f07088; --s6: #a48af0; --s7: #8fc45a; --s8: #d19a64;
+  --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45); color-scheme: dark; }
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 15px; }
+#dash-root { max-width: 1280px; margin-inline: auto; padding: 28px clamp(16px, 4vw, 40px) 48px; box-sizing: border-box; }
+#dash-root *, #dash-root *::before, #dash-root *::after { box-sizing: border-box; }
+#dash-root h1, #dash-root h2 { text-wrap: balance; }
+#dash-root .dash-skeleton { color: transparent !important; background: color-mix(in srgb, var(--color-fg) 7%, transparent); border-radius: 4px; }
+#dash-root .lx-status { display: inline-flex; align-items: center; gap: 6px; }
+#dash-root .lx-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-ok); display: inline-block; }
+#dash-root .lx-status.is-stale i { background: var(--color-warn); }
+#dash-root .lx-status.is-stale { color: var(--color-warn); }
+#dash-root .lx-map { height: 480px; min-height: 0; touch-action: auto; }
+#dash-root .lx-map .leaflet-container { font-family: var(--font-anthropic-sans); }
+#dash-root .lx-north { background: rgba(255,255,255,.85); border-radius: 6px; padding: 2px 4px 0; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+#dash-root .lx-north svg { display: block; fill: #17201b; font: 600 11px var(--font-anthropic-sans); }
+#dash-root .lx-site-label { font-family: var(--font-anthropic-sans); font-size: 12px; font-weight: 600; }
+#dash-root .lx-star svg { display: block; filter: drop-shadow(0 0 1.5px #fff); }
+#dash-root .lx-lock { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+#dash-root .lx-lock[hidden] { display: none; }
+#dash-root .lx-lock-card { width: min(400px, 100%); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: 12px; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--cds-shadow-popover); }
+#dash-root .lx-lock-card h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+#dash-root .lx-lock-eyebrow { margin: 0; font-size: var(--cds-font-size-caption); letter-spacing: .08em; text-transform: uppercase; color: var(--color-fg-muted); }
+#dash-root .lx-lock-lead { margin: 0 0 10px; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); line-height: 1.5; }
+#dash-root .lx-lock-card label { font-size: var(--cds-font-size-caption); font-weight: 500; }
+#dash-root .lx-lock-card input[type=password] { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--color-border-line); border-radius: 6px; background: var(--color-bg); color: var(--color-fg); }
+#dash-root .lx-lock-card input[type=password]:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+#dash-root .lx-lock-remember { display: flex; align-items: center; gap: 8px; font-weight: 400 !important; color: var(--color-fg-muted); }
+#dash-root .lx-lock-card button { font: inherit; font-weight: 600; margin-top: 6px; padding: 11px; border: 0; border-radius: 6px; background: var(--color-fg); color: var(--color-bg); cursor: pointer; }
+#dash-root .lx-lock-card button:disabled { opacity: .6; cursor: progress; }
+#dash-root [hidden] { display: none !important; }
+#dash-root .lx-lock-error { margin: 4px 0 0; color: var(--color-bad); font-size: var(--cds-font-size-caption); }
+#dash-root .lx-meta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#dash-root .lx-link-btn { font: inherit; font-size: var(--cds-font-size-caption); background: none; border: 0; padding: 0; color: var(--color-fg-muted); text-decoration: underline; cursor: pointer; }
+#dash-root footer { margin-top: var(--cds-gap-xl); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); line-height: 1.5; }
+#dash-root a { color: inherit; }
+#dash-root button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+#dash-root .lx-back { display: inline-block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-decoration: none; margin-bottom: 10px; }
+#dash-root .lx-back:hover { color: var(--color-fg); text-decoration: underline; }
+#dash-root .lx-interp-note { margin: -4px 0 8px; color: var(--color-fg-muted); }
