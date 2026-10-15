@@ -72,10 +72,10 @@
 <script src="lock.js"></script>
 <script>
 // Minimal stand-in for the Claude dashboard runtime: loads the encrypted data for the tag in ?id=, decrypts it
-// with the visitor's password (lock.js), recomputes calcs, redraws, and checks for new data every 10 minutes.
+// with the visitor's password (lock.js), recomputes calcs, redraws, and checks for new data every 5 minutes.
 window.dash = (() => {
   const FILES = { summary: 'summary.csv', daily: 'daily.csv', hourly: 'hourly.csv', hod: 'hour_of_day.csv', locations: 'locations_top10.csv', gaps: 'longest_gaps.csv', fix_points: 'fix_points.csv', track: 'track.csv', gps: 'gps_quality.csv', battery: 'battery.csv' };
-  const REFRESH_MS = 10 * 60 * 1000;
+  const REFRESH_MS = 5 * 60 * 1000;
   const store = {}, calcs = {}, cbs = [];
   const TAG = (new URLSearchParams(location.search).get('id') || '').toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 8);
   let meta = null, lastLoad = 0, lastIv = null, lastBundle = null;
@@ -94,8 +94,8 @@ window.dash = (() => {
     if (!meta) { el.textContent = 'Waiting for the first update'; return; }
     const mins = Math.round((Date.now() - Date.parse(meta.generatedAt)) / 60000);
     const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ${mins % 60} min ago`;
-    el.parentElement.classList.toggle('is-stale', mins > 40);
-    el.textContent = `Data updated ${ago}` + (mins > 40 ? ' (updates seem delayed)' : ' · refreshes every 10 minutes');
+    el.parentElement.classList.toggle('is-stale', mins > 60);
+    el.textContent = `Data updated ${ago}` + (mins > 60 ? ' (updates seem delayed)' : ' · checked every 5 minutes');
   }
   async function load() {
     lastLoad = Date.now();
@@ -442,7 +442,7 @@ window.dash = (() => {
   </div>
 
   <footer>
-    Data: Field Signal export for Sigfox device <span data-meta="device">—</span>, recomputed every 10 minutes by a GitHub Actions job. Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+    Data: Field Signal export for Sigfox device <span data-meta="device">—</span>, recomputed by a GitHub Actions job scheduled every 5 minutes. Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
     Missing messages are gaps in the Sigfox sequence number. Times are SAST (UTC+2).
   </footer>
 </div>

@@ -61,13 +61,13 @@
     <div class="hm-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading…</span></span><button type="button" class="lx-link-btn" data-lock-now>Lock</button></div>
   </header>
   <section class="hm-grid" id="tags" aria-label="Tags"></section>
-  <footer>Data from Field Signal, refreshed every 10 minutes by a GitHub Actions job. Times are SAST.</footer>
+  <footer>Data from Field Signal, updated by a GitHub Actions job scheduled every 5 minutes. Times are SAST.</footer>
 </div>
 
 </div>
 <script>
 (() => {
-  const REFRESH_MS = 10 * 60 * 1000;
+  const REFRESH_MS = 5 * 60 * 1000;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fInt = n => Number(n).toLocaleString('en-ZA');
   let home = null, lastIv = null, lastBundle = null;
@@ -104,8 +104,8 @@
   function status() {
     const el = document.getElementById('updated'); if (!home) return;
     const mins = Math.round((Date.now() - Date.parse(home.generatedAt)) / 60000);
-    el.parentElement.classList.toggle('is-stale', mins > 40);
-    el.textContent = `Data updated ${mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min ago'}` + (mins > 40 ? ' (updates seem delayed)' : ' · refreshes every 10 minutes');
+    el.parentElement.classList.toggle('is-stale', mins > 60);
+    el.textContent = `Data updated ${mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min ago'}` + (mins > 60 ? ' (updates seem delayed)' : ' · checked every 5 minutes');
   }
   function render(payload, bundle) {
     home = payload; lastIv = bundle.iv;

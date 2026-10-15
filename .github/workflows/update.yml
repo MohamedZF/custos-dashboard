@@ -2,7 +2,7 @@ name: Update dashboard
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes (GitHub may start scheduled runs a few minutes late)
+    - cron: '*/5 * * * *'    # every 5 minutes, GitHub's shortest schedule. GitHub starts scheduled runs late at busy times, so in practice updates land every 10-45 minutes.
   workflow_dispatch:          # "Run workflow" button for a manual refresh
   push:
     branches: [main]          # redeploy when the page or script changes

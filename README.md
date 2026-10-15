@@ -1,6 +1,6 @@
 # Custos tag dashboards
 
-A password-protected website for Custos Sigfox tags: a homepage with a button for each tag, and a dashboard per tag showing health, message delivery, activity and movement. A GitHub Actions job signs in to Field Signal every 10 minutes, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
+A password-protected website for Custos Sigfox tags: a homepage with a button for each tag, and a dashboard per tag showing health, message delivery, activity and movement. A GitHub Actions job signs in to Field Signal on a 5-minute schedule, rebuilds the data and republishes the page on GitHub Pages. Nothing runs on your own computer.
 
 ```
 site/index.html          homepage: one card per tag with its status, links to the tag's dashboard
@@ -8,7 +8,7 @@ site/tag.html            a tag's dashboard (tag.html?id=SIGFOX_ID): charts, live
 site/compare.html        Compare tab: two to four tags side by side for one feature and time range
 site/lock.js, common.css password lock and styles shared by both pages
 scripts/update.mjs       signs in to Field Signal, exports each tag's last 31 days, writes encrypted data for the 24 h / 7 day / 30 day views
-.github/workflows/       runs the script every 10 minutes and deploys to GitHub Pages
+.github/workflows/       runs the script every 5 minutes (as scheduled) and deploys to GitHub Pages
 test/mock-server.mjs     a stand-in Field Signal for testing the script without the real site
 ```
 
@@ -23,11 +23,12 @@ test/mock-server.mjs     a stand-in Field Signal for testing the script without 
 4. **Run it once.** *Actions → Update dashboard → Run workflow*. When the run finishes (about a minute), the page is live at
    `https://<your-github-username>.github.io/<repository-name>/`.
 
-After that it updates by itself every 10 minutes.
+After that it updates by itself on a 5-minute schedule.
 
 ## Good to know
 
-- **Timing.** GitHub starts scheduled runs on a best-effort basis, so updates usually land every 10–15 minutes and occasionally later at busy times. The page shows how old its data is and turns amber if an update is more than 40 minutes late.
+- **Timing.** The workflow is scheduled every 5 minutes, GitHub's shortest interval. GitHub starts scheduled runs on a best-effort basis and delays them at busy times, so updates usually land every 10–45 minutes. The pages check for new data every 5 minutes and turn amber if an update is more than an hour late.
+- **Cost.** Free: GitHub Actions on standard runners and GitHub Pages cost nothing for public repositories. Pages has a soft limit of 10 builds an hour, but it does not apply to sites published with a custom Actions workflow like this one.
 - **If an update fails** (wrong passcode, Field Signal down), the previous page stays online and GitHub emails you about the failed run. The run log explains the cause in one line.
 - **Cloudflare.** Field Signal sits behind Cloudflare. If Cloudflare ever blocks GitHub's servers, the run fails with a message saying so; the Field Signal owner can allow the client in Cloudflare.
 - **60-day rule.** GitHub pauses scheduled workflows in public repositories after 60 days without any commits. GitHub emails a warning first; re-enable it with one click under *Actions*, or push any small change.

@@ -146,13 +146,13 @@
 
   <section class="cp-out" id="out" aria-live="polite"></section>
 
-  <footer>Data from Field Signal, refreshed every 10 minutes by a GitHub Actions job. Times are SAST (UTC+2). Missing messages are gaps in the Sigfox sequence number.</footer>
+  <footer>Data from Field Signal, updated by a GitHub Actions job scheduled every 5 minutes. Times are SAST (UTC+2). Missing messages are gaps in the Sigfox sequence number.</footer>
 </div>
 
 </div>
 <script>
 (() => {
-  const REFRESH_MS = 10 * 60 * 1000, MAX_TAGS = 4;
+  const REFRESH_MS = 5 * 60 * 1000, MAX_TAGS = 4;
   const RANGES = { '24h': 'past 24 hours', '7d': 'past 7 days', '30d': 'past 30 days' };
   // Tag colours avoid red and orange, which mean "missing" in the delivery charts.
   const PALETTE = ['var(--s1)', 'var(--s4)', 'var(--s6)', 'var(--s3)', 'var(--s8)', 'var(--s7)', 'var(--s2)', 'var(--s5)'];
@@ -226,8 +226,8 @@
   function status() {
     const el = $('updated'); if (!home) return;
     const mins = Math.round((Date.now() - Date.parse(home.generatedAt)) / 60000);
-    el.parentElement.classList.toggle('is-stale', mins > 40);
-    el.textContent = `Data updated ${mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min ago'}` + (mins > 40 ? ' (updates seem delayed)' : ' · refreshes every 10 minutes');
+    el.parentElement.classList.toggle('is-stale', mins > 60);
+    el.textContent = `Data updated ${mins < 1 ? 'just now' : mins < 60 ? mins + ' min ago' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min ago'}` + (mins > 60 ? ' (updates seem delayed)' : ' · checked every 5 minutes');
   }
 
   // ---------- controls ----------
