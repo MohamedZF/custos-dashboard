@@ -61,7 +61,7 @@ Each dashboard has a GPS quality section: time to fix (TTF) and HDOP per hour or
 
 ## Compare
 
-The **Compare** tab on the homepage puts two to four tags side by side. Pick the tags, what to compare (headline figures, received vs missing, delivery %, battery, temperature, GPS fix rate, GPS map, time to fix and HDOP over time / as distributions / by hour of day, activity by hour, daily activity profile) and the time range; the comparison appears as soon as two tags and a feature are chosen. Each tag keeps one colour throughout. The choice is kept in the address (`compare.html?tags=3B4D868,3B4D876&f=received&range=7d`), so a comparison can be bookmarked.
+The **Compare** tab on the homepage shows one tag, or puts up to four side by side. Pick the tags, what to compare (headline figures, received vs missing, delivery %, battery, temperature, GPS fix rate, GPS map, time to fix and HDOP over time / as distributions / by hour of day, activity by hour, daily activity profile) and the time range; the charts appear as soon as one tag and a feature are chosen. Each tag keeps one colour throughout. The choice is kept in the address (`compare.html?tags=3B4D868,3B4D876&f=received&range=7d`), so a comparison can be bookmarked.
 
 ## Time ranges
 

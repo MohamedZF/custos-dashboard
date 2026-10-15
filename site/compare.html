@@ -86,7 +86,7 @@
   <header>
     <nav class="hm-tabs" aria-label="Sections"><a href="./">Tags</a><a href="compare.html" aria-current="page">Compare</a></nav>
     <h1>Compare tags</h1>
-    <p class="cp-lead">Pick the tags, what to compare and the time range. The comparison appears as soon as two tags and a feature are chosen, and the page address keeps your choice so you can bookmark it.</p>
+    <p class="cp-lead">Pick one or more tags, what to show and the time range. The charts appear as soon as a tag and a feature are chosen; add more tags to compare them. The page address keeps your choice, so you can bookmark it.</p>
     <div class="cp-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading…</span></span><button type="button" class="lx-link-btn" data-lock-now>Lock</button></div>
   </header>
 
@@ -94,7 +94,7 @@
     <div class="cp-step">
       <span><b>1</b>Tags <em id="tag-count" style="font-style:normal;font-weight:400"></em></span>
       <div class="cp-chips" id="tag-chips"></div>
-      <p class="cp-hint">Choose two to four tags.</p>
+      <p class="cp-hint">Choose one tag to view it, or up to four to compare.</p>
     </div>
     <div class="cp-step">
       <span><b>2</b><label for="feature">What to compare</label></span>
@@ -259,9 +259,9 @@
     const out = $('out');
     if (mapObj) { mapObj.remove(); mapObj = null; }
     const need = [];
-    if (sel.tags.length < 2) need.push(sel.tags.length ? 'one more tag' : 'at least two tags');
+    if (!sel.tags.length) need.push('a tag');
     if (!sel.f) need.push('what to compare');
-    if (need.length) { out.innerHTML = `<p class="lx-card cp-empty">Choose ${need.join(' and ')} above to see the comparison.</p>`; return; }
+    if (need.length) { out.innerHTML = `<p class="lx-card cp-empty">Choose ${need.join(' and ')} above to see the charts.</p>`; return; }
     const my = ++token;
     out.innerHTML = '<div class="cp-loading">Loading…</div>';
     let payloads;
