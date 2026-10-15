@@ -18,7 +18,7 @@ function csv(dev) {
     const site = day && rnd() < 0.6 ? [-26.1852 + shift, 28.00093 + shift] : [-26.14539 + shift, 27.9068 + shift];
     const fix = rnd() > 0.25;
     // smooth raw battery: slow discharge with daily recharge; 11.1 SAC sags low after Oct 10
-    const braw = Math.max(0, Math.min(255, Math.round((dev === '3B4D868' && t > Date.parse('2026-10-10T00:00:00Z') ? 40 : 200) + 50 * Math.sin(t / 864e5 * 2 * Math.PI) + rnd() * 3)));
+    const braw = Math.max(0, Math.min(255, Math.round((dev === '3B4D868' && t > Date.parse('2026-10-10T00:00:00Z') ? 40 : 200) + 50 * Math.sin(((t / 3600e3 + 2) % 24 - 10) / 24 * 2 * Math.PI) + rnd() * 3)));
     const skipped = rnd() < 0.15 ? Math.floor(rnd() * 4) + 1 : 0;
     seq += 1 + skipped;
     const lat = fix ? (site[0] + (rnd() - 0.5) * 0.0004).toFixed(6) : '';

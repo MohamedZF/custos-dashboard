@@ -279,6 +279,48 @@ window.dash = (() => {
     </div>
   </div>
 
+  <h2 class="lx-sec" id="energy">Solar energy balance</h2>
+  <p class="lx-sec-note">The tag runs on a <span data-source="summary" data-field="cap_farads" data-row="0">400</span> F hybrid supercap, full at <span data-source="summary" data-field="cap_vmax" data-row="0">4.0</span> V. Stored energy is E = ½CV², counted above <span data-source="summary" data-field="cap_vmin" data-row="0">2.5</span> V, so a full supercap holds <span data-source="summary" data-field="energy_usable_j" data-row="0">1,950</span> J of usable energy. Net energy is the change in stored energy: solar harvest minus what the tag used. Green is net charging, amber is net drain. The battery reading stops at 3.6 V (<span data-source="summary" data-field="energy_visible_max_j" data-row="0">1,342</span> J), so energy stored above that is not seen.</p>
+  <section class="lx-kpis" aria-label="Energy figures">
+    <div class="lx-kpi">
+      <span class="lx-label">Stored now</span>
+      <span class="lx-big"><span data-source="summary" data-field="energy_now_j" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">J</span></span>
+      <span class="lx-sub"><span data-source="summary" data-field="energy_soc_pct" data-row="0">—</span>% of usable capacity</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Net energy over the range</span>
+      <span class="lx-big" id="kpi-net"><span data-source="summary" data-field="energy_net_j" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">J</span></span>
+      <span class="lx-sub">from the first to the last message</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Net energy per day</span>
+      <span class="lx-big" id="kpi-net-day"><span data-source="summary" data-field="energy_net_per_day_j" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">J</span></span>
+      <span class="lx-sub">average over the range</span>
+    </div>
+    <div class="lx-kpi">
+      <span class="lx-label">Stored energy range</span>
+      <span class="lx-big"><span data-source="summary" data-field="energy_min_j" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">to</span> <span data-source="summary" data-field="energy_max_j" data-row="0">—</span><span class="lx-unit">J</span></span>
+      <span class="lx-sub">at the 3.6 V ceiling <span data-source="summary" data-field="at_ceiling_pct" data-row="0">—</span>% of the time</span>
+    </div>
+  </section>
+  <div class="lx-grid">
+    <div class="lx-card">
+      <h3>Net energy per <span data-unit>day</span></h3>
+      <p class="lx-note">Change in stored energy in each <span data-unit>day</span>, in joules. Above zero the panel harvested more than the tag used.</p>
+      <div class="lx-chart" id="chart-energy-net" data-source="daily"></div>
+    </div>
+    <div class="lx-card">
+      <h3>Energy balance by hour of day</h3>
+      <p class="lx-note">Average net power in each hour (SAST), in milliwatts, across the range: the daily solar cycle. Only messages up to 90 minutes apart are used.</p>
+      <div class="lx-chart" id="chart-energy-hod" data-source="hod"></div>
+    </div>
+  </div>
+  <div class="lx-card">
+    <h3>Stored energy</h3>
+    <p class="lx-note">Usable energy in the supercap at each reading, in joules. The dashed line is 3.6 V, the highest the battery reading can show.</p>
+    <div class="lx-chart" id="chart-energy" data-source="battery"></div>
+  </div>
+
   <h2 class="lx-sec" id="gps">GPS and movement</h2>
   <div class="lx-grid">
     <div class="lx-card">
@@ -573,6 +615,36 @@ function barChart(box, rows, opt) {
     .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
 }
 
+// Bars above and below zero: green for positive (net charging), amber for negative (net drain).
+function divBars(box, rows, opt) {
+  box.innerHTML = '';
+  const W = Math.max(280, box.clientWidth), H = 220, m = { t: 10, r: 8, b: 26, l: 0 };
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+  const vs = rows.map(d => d.v).filter(Number.isFinite);
+  const y = d3.scaleLinear([Math.min(0, d3.min(vs) ?? 0), Math.max(0, d3.max(vs) ?? 1) || 1], [H - m.b, m.t]).nice();
+  const yt = y.ticks(5);
+  m.l = measure(svg, yt.map(opt.yFmt)) + 10;
+  const x = d3.scaleBand(rows.map(d => d.k), [m.l, W - m.r]).padding(0.22);
+  svg.append('g').selectAll('line').data(yt).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'lx-tick').attr('x', m.l - 8).attr('y', d => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(opt.yFmt);
+  const lw = d3.max(rows, d => measure(svg, [opt.xFmt(d.k)])) + 8;
+  const every = Math.max(1, Math.ceil(lw / x.step()));
+  svg.append('g').selectAll('text').data(rows.filter((d, i) => i % every === 0)).join('text').attr('class', 'lx-tick').attr('x', d => x(d.k) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').text(d => opt.xFmt(d.k));
+  const bw = Math.min(32, x.bandwidth()), off = (x.bandwidth() - bw) / 2;
+  svg.append('g').selectAll('rect').data(rows.filter(d => Number.isFinite(d.v))).join('rect')
+    .attr('x', d => x(d.k) + off).attr('width', bw).attr('y', d => y(Math.max(0, d.v))).attr('height', d => Math.abs(y(d.v) - y(0))).attr('rx', 2)
+    .attr('fill', d => d.v >= 0 ? 'var(--color-ok)' : 'var(--color-warn)');
+  svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+  const tip = tipOf(box);
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', d => x(d.k)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+    .on('pointerenter', function (ev, d) {
+      d3.select(this).attr('fill', 'var(--cds-chart-grid)').attr('fill-opacity', 0.5);
+      tipLines(tip, opt.tipHead(d), opt.tip(d));
+      const s = box.clientWidth / W; placeTip(tip, box, (x(d.k) + x.bandwidth()) * s, 60);
+    })
+    .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); tip.style.display = 'none'; });
+}
+
 function fillTable(tbl, st, rows, cols) {
   const tb = tbl.querySelector('tbody'); tb.textContent = '';
   tbl.classList.toggle('dash-skeleton', st === 'loading');
@@ -650,6 +722,18 @@ function pickSites(rows) {
   if (!c.length) return [];
   const s2 = c.slice(1).find(d => metres(c[0], d) > 500);
   return [c[0], s2].filter(Boolean).map((d, i) => ({ ...d, name: `Site ${i + 1}` }));
+}
+function energyLine(S, hod) {
+  if (S.energy_net_j === '' || S.energy_net_j == null) return [];
+  const net = Number(S.energy_net_j), perDay = Number(S.energy_net_per_day_j);
+  const pw = hod.filter(d => d.net_power_mw !== '' && d.net_power_mw != null).map(d => ({ h: Number(d.hour_sast), v: Number(d.net_power_mw) }));
+  const best = pw.length ? pw.reduce((a, b) => b.v > a.v ? b : a) : null, worst = pw.length ? pw.reduce((a, b) => b.v < a.v ? b : a) : null;
+  const hh = h => String(h).padStart(2, '0') + ':00';
+  let t = `The supercap ${net >= 0 ? 'gained' : 'lost'} ${fInt(Math.abs(net))} J over the range (${perDay >= 0 ? '+' : ''}${fInt(perDay)} J a day) and holds ${fInt(S.energy_now_j)} J now, ${S.energy_soc_pct}% of usable capacity.`;
+  if (best && best.v > 0) t += ` Solar charging peaks around ${hh(best.h)} (+${d3.format('.1f')(best.v)} mW)`;
+  if (worst && worst.v < 0) t += `${best && best.v > 0 ? ';' : ''} the heaviest net drain is around ${hh(worst.h)} (${d3.format('.1f')(worst.v)} mW).`; else if (best && best.v > 0) t += '.';
+  if (Number(S.at_ceiling_pct) >= 5) t += ` It sat at the 3.6 V reading ceiling ${S.at_ceiling_pct}% of the time, so some harvested energy above 3.6 V is not counted.`;
+  return [t];
 }
 function gpsLine(S, hod) {
   const fixes = Number(S.gps_fixes), msgs = Number(S.messages);
@@ -799,6 +883,26 @@ dash.onData(() => {
     });
   }
 
+  // solar energy balance
+  if (S.status === 'ok' && S.data.length) {
+    [['kpi-net', 'energy_net_j'], ['kpi-net-day', 'energy_net_per_day_j']].forEach(([id, f]) => { const v = Number(S.data[0][f]); const el = document.getElementById(id); el.classList.toggle('lx-ok', v > 0); el.classList.toggle('lx-warn', v < 0); });
+    document.querySelectorAll('#energy ~ .lx-kpis [data-field=energy_net_j], #energy ~ .lx-kpis [data-field=energy_net_per_day_j]').forEach(el => { const v = Number(el.textContent.replace(/,/g, '')); if (v > 0) el.textContent = '+' + el.textContent; });
+  }
+  const boxEN = document.getElementById('chart-energy-net');
+  if (prep(boxEN, D.status)) divBars(boxEN, D.data.map(d => ({ k: d.date, v: d.energy_net_j === '' || d.energy_net_j == null ? NaN : Number(d.energy_net_j), end: d.energy_end_j, n: Number(d.messages) })), {
+    yFmt: v => fInt(v) + ' J', xFmt: fKey, tipHead: d => fKeyLong(d.k),
+    tip: d => Number.isFinite(d.v) ? [`Net ${d.v > 0 ? '+' : ''}${fInt(d.v)} J (${d.v >= 0 ? 'charging' : 'draining'})`, `Stored at the end: ${fInt(d.end)} J`, `${fInt(d.n)} messages`] : ['No messages'] });
+  const boxEH = document.getElementById('chart-energy-hod');
+  if (prep(boxEH, HD.status)) divBars(boxEH, HD.data.map(d => ({ k: d.hour_sast, v: d.net_power_mw === '' || d.net_power_mw == null ? NaN : Number(d.net_power_mw) })), {
+    yFmt: v => v + ' mW', xFmt: k => String(k).padStart(2, '0'), tipHead: d => String(d.k).padStart(2, '0') + ':00 SAST',
+    tip: d => Number.isFinite(d.v) ? [`Net ${d.v > 0 ? '+' : ''}${d3.format('.1f')(d.v)} mW`, `≈ ${d.v > 0 ? '+' : ''}${fInt(Math.round(d.v * 3.6))} J per hour`] : ['No data'] });
+  const boxE = document.getElementById('chart-energy');
+  if (prep(boxE, BV.status) && S.status === 'ok' && S.data.length) {
+    const erows = BV.data.map(d => ({ x: parseH(d.time_sast), y: Number(d.energy_j), v: d.battery_v })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x);
+    lineChart(boxE, erows, { color: 'var(--color-ok)', yDomain: [0, Number(S.data[0].energy_usable_j) || 1950], ref: Number(S.data[0].energy_visible_max_j), yFmt: v => fInt(v) + ' J',
+      dots: true, thin: true, tipHead: d => fDayM(d.x) + ' SAST', tip: d => [`${fInt(d.y)} J stored`, `${d3.format('.3f')(d.v)} V`] });
+  }
+
   // GPS quality
   const num = v => (v === '' || v == null) ? NaN : Number(v);
   const boxTT = document.getElementById('chart-ttf');
@@ -839,7 +943,7 @@ dash.onData(() => {
   }
   // generated interpretation
   const ul = document.getElementById('interp');
-  if ([FP, LC, HD].every(d => d.status === 'ok')) ul.innerHTML = interpret(FP.data, LC.data, HD.data).concat(S.status === 'ok' && S.data.length ? gpsLine(S.data[0], HD.data) : []).map(t => `<li>${t}</li>`).join('');
+  if ([FP, LC, HD].every(d => d.status === 'ok')) ul.innerHTML = interpret(FP.data, LC.data, HD.data).concat(S.status === 'ok' && S.data.length ? gpsLine(S.data[0], HD.data).concat(energyLine(S.data[0], HD.data)) : []).map(t => `<li>${t}</li>`).join('');
   const hn = document.getElementById('hod-note');
   if (HD.status === 'ok') { const tot = d3.sum(HD.data, r => +r.activity_sum), dayA = d3.sum(HD.data.filter(r => +r.hour_sast >= 7 && +r.hour_sast < 17), r => +r.activity_sum); hn.textContent = tot ? `${pct(dayA, tot)}% of it falls between 07:00 and 17:00 SAST.` : 'No activity recorded in this period.'; }
 

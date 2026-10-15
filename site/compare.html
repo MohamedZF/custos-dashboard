@@ -107,6 +107,11 @@
           <option value="received">Received vs missing messages</option>
           <option value="delivery">Delivery % over time</option>
         </optgroup>
+        <optgroup label="Solar energy">
+          <option value="energynet">Net energy per hour / day</option>
+          <option value="energyhod">Energy balance by hour of day</option>
+          <option value="energy">Stored energy</option>
+        </optgroup>
         <optgroup label="Device health">
           <option value="battery">Battery voltage</option>
           <option value="temp">Temperature</option>
@@ -327,6 +332,8 @@
       svg.append('g').selectAll('text').data(d3.range(0, 24, W < 520 ? 6 : 3)).join('text').attr('class', 'lx-tick').attr('x', d => x(d)).attr('y', H - 8).attr('text-anchor', 'middle').text(d => String(d).padStart(2, '0') + ':00');
       svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
     } else xAxis(svg, x, H, m, o.hourly, nx);
+    if (o.zero && y.domain()[0] < 0 && y.domain()[1] > 0) svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    if (o.ref != null) svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(o.ref)).attr('y2', y(o.ref)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4');
     const xv = d => o.hod ? d.x : +d.x;
     series.forEach(s => {
       const pts = [];
@@ -454,6 +461,10 @@
           ['Fixes with excellent HDOP (≤1)', t => S(t).hdop_excellent_pct === '' || S(t).hdop_excellent_pct == null ? '—' : S(t).hdop_excellent_pct + '%', t => n(S(t).hdop_excellent_pct), 'max'],
           ['Battery now', t => S(t).battery_v_latest + ' V'],
           ['Lowest battery', t => S(t).battery_v_min + ' V', t => +S(t).battery_v_min, 'max'],
+          ['Stored energy now', t => S(t).energy_now_j == null || S(t).energy_now_j === '' ? '—' : `${fInt(S(t).energy_now_j)} J (${S(t).energy_soc_pct}%)`, t => n(S(t).energy_now_j), 'max'],
+          ['Net energy over range', t => S(t).energy_net_j == null || S(t).energy_net_j === '' ? '—' : `${+S(t).energy_net_j > 0 ? '+' : ''}${fInt(S(t).energy_net_j)} J`, t => n(S(t).energy_net_j), 'max'],
+          ['Net energy per day', t => S(t).energy_net_per_day_j == null || S(t).energy_net_per_day_j === '' ? '—' : `${+S(t).energy_net_per_day_j > 0 ? '+' : ''}${fInt(S(t).energy_net_per_day_j)} J`, t => n(S(t).energy_net_per_day_j), 'max'],
+          ['Time at 3.6 V reading ceiling', t => S(t).at_ceiling_pct == null || S(t).at_ceiling_pct === '' ? '—' : S(t).at_ceiling_pct + '%'],
           ['Temperature, avg', t => f1(S(t).temp_c_avg) + ' °C'],
           ['Temperature range', t => `${S(t).temp_c_min} to ${S(t).temp_c_max} °C`],
           ['Messages with activity', t => fInt(S(t).msgs_with_activity)],
@@ -550,6 +561,34 @@
           grid.appendChild(c);
           return { t, rows, box: chartBox(c) };
         }).forEach(({ t, rows, box }) => rose(box, rows, max, t.color));
+      },
+    },
+    energynet: {
+      title: ctx => `Net energy per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
+      note: ctx => `Change in energy stored in each tag's 400 F supercap for each ${ctx.hourly ? 'hour' : 'day'} (E = ½CV², counted above 2.5 V). Above zero, solar harvest beat what the tag used. Energy above the 3.6 V reading ceiling is not seen.`,
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => { const v = +t.F.summary[0].energy_net_per_day_j; return Number.isFinite(v) ? `${v > 0 ? '+' : ''}${fInt(v)} J per day` : ''; }));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => n(d.energy_net_j)) })),
+          lineOpts(ctx, { yFmt: v => fInt(v) + ' J', zero: true, gap: ctx.hourly ? 1.5 * 3600e3 : 1.5 * 86400e3, tol: ctx.hourly ? 0.6 * 3600e3 : 0.6 * 86400e3, tipFmt: d => `${d.y > 0 ? '+' : ''}${fInt(d.y)} J (stored ${fInt(d.d.energy_end_j)} J at the end)` }));
+      },
+    },
+    energyhod: {
+      title: ctx => `Energy balance by hour of day, ${ctx.label}`,
+      note: () => 'Average net power in each hour of the day (SAST), in milliwatts: positive while the panel out-harvests the tag\'s use, negative when the supercap is draining. Uses messages up to 90 minutes apart.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx));
+        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: t.F.hour_of_day.map(d => ({ x: +d.hour_sast, y: n(d.net_power_mw), d })) })),
+          { hod: true, zero: true, yFmt: v => v + ' mW', gap: 1.5, tol: 0.5, head: h => `${String(h).padStart(2, '0')}:00 SAST`, tipFmt: d => `${d.y > 0 ? '+' : ''}${f1(d.y)} mW` });
+      },
+    },
+    energy: {
+      title: ctx => `Stored energy, ${ctx.label}`,
+      note: () => 'Usable energy in each tag\'s 400 F supercap at every reading (E = ½CV² above 2.5 V; full at 4.0 V = 1,950 J). The dashed line is 3.6 V (1,342 J), the highest the battery reading can show.',
+      draw(card, ctx) {
+        card.appendChild(legend(ctx, t => `now ${fInt(t.F.summary[0].energy_now_j)} J (${t.F.summary[0].energy_soc_pct}%)`));
+        const span = ctx.win[1] - ctx.win[0];
+        const series = ctx.tags.map(t => ({ name: t.name, color: t.color, rows: (t.F.battery || []).map(d => ({ x: parseH(d.time_sast), y: n(d.energy_j), d })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x) }));
+        multiLine(chartBox(card), series, lineOpts(ctx, { yDomain: [0, +ctx.tags[0].F.summary[0].energy_usable_j || 1950], ref: +ctx.tags[0].F.summary[0].energy_visible_max_j || 1342, yFmt: v => fInt(v) + ' J', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${fInt(d.y)} J (${d3.format('.3f')(+d.d.battery_v)} V)`, head: x => fDayM(x) + ' SAST' }));
       },
     },
     ttf: {

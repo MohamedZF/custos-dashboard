@@ -55,6 +55,10 @@ Commit the change; the next run adds the tag's card to the homepage. Device IDs 
 
 Battery charts use the raw battery byte from each message payload (byte 10, 0–255), converted the same way Field Signal does: **2.5 V + raw × 1.1 / 255**, so raw 255 = 3.6 V and raw 0 = 2.5 V. This matched the export's 0.1 V battery column on every message checked (6,718 across four tags) and gives steps of about 0.004 V instead of 0.1 V.
 
+## Solar energy balance
+
+Each tag runs on a 400 F hybrid supercap, full at 4.0 V. Stored energy is E = ½CV², counted above 2.5 V (the bottom of the battery scale and the usual lower limit of a hybrid capacitor), so a full supercap holds 1,950 J of usable energy. Net energy is the change in stored energy between messages: solar harvest minus what the tag used. Each dashboard shows stored energy now, net energy over the range and per day, net energy per hour or day, the average energy balance by hour of day (mW), and stored energy at every reading; Compare has the same three charts. The battery reading tops out at 3.6 V (1,342 J), so energy stored between 3.6 V and 4.0 V is not seen; the dashboards show how often a tag sits at that ceiling. Change the capacitor with `CAP_FARADS`, `CAP_VMAX` and `CAP_VMIN` in the workflow's `env:` block.
+
 ## GPS quality (time to fix and HDOP)
 
 Each dashboard has a GPS quality section: time to fix (TTF) and HDOP per hour or day, their distributions, and both by hour of day, plus headline tiles and map tooltips. TTF statistics use only messages that got a fix, because the TTF reported on a failed attempt depends on the tag's firmware timeout (64 s on most tags; 11.1 SAC reports 0 or 119 s). HDOP bands: 0–1 excellent, 2–4 good, 5–9 moderate, 10+ poor; 99 means no fix.

@@ -86,6 +86,13 @@ const batRaw = payload => /^[0-9a-f]{24}$/i.test(payload) ? parseInt(payload.sli
 const batVolts = raw => 2.5 + raw * 1.1 / 255;
 const r3 = x => Math.round(x * 1000) / 1000;
 
+// Energy store: a 400 F hybrid supercap, 4.0 V when full. Usable energy is counted above 2.5 V, the bottom of
+// the battery scale and the usual lower limit of a hybrid (lithium-ion) capacitor: E = 1/2 C (V^2 - Vmin^2).
+// The raw reading tops out at 3.6 V, so energy stored between 3.6 V and 4.0 V cannot be seen.
+const CAP_F = Number(process.env.CAP_FARADS || 400), CAP_VMAX = Number(process.env.CAP_VMAX || 4.0), CAP_VMIN = Number(process.env.CAP_VMIN || 2.5);
+const capJ = v => 0.5 * CAP_F * (Math.max(v, CAP_VMIN) ** 2 - CAP_VMIN ** 2);
+const CAP_USABLE_J = capJ(CAP_VMAX), CAP_VISIBLE_J = capJ(3.6);
+
 function parse(text) {
   if (text.trim().split('\n').length < 2) return [];
   const rows = text.trim().split('\n').slice(1).map(l => l.replace(/\r$/, '').slice(1, -1).split('","'));
@@ -115,6 +122,10 @@ function compute(P, DEV, NAME, bucket, span) {
   const grp = (arr, k) => { const g = new Map(); arr.forEach(p => { const key = typeof k === 'function' ? k(p) : p[k]; if (!g.has(key)) g.set(key, []); g.get(key).push(p); }); return g; };
   const first = P[0], last = P[P.length - 1], fixes = P.filter(fix);
   const expected = last.seq - first.seq + 1;
+  // Net energy: change in stored energy between consecutive messages, credited to the later message.
+  P.forEach((p, i) => { p.e = capJ(p.bat); p.de = i ? p.e - P[i - 1].e : 0; });
+  const spanDays = span ? (span.to - span.from) / 864e5 : 1;
+  const netJ = last.e - first.e;
   const S = {
     device_id: DEV, name: NAME, messages: P.length, first_message_sast: first.sast, last_message_sast: last.sast,
     seq_first: first.seq, seq_last: last.seq, missing_messages: expected - P.length, expected_messages: expected,
@@ -122,6 +133,11 @@ function compute(P, DEV, NAME, bucket, span) {
     ttf_median_s: med(fixes.map(p => p.ttf)), ttf_over_60s: P.filter(p => p.ttf > 60).length, ...gpsq(P),
     no_fix_ttf_median_s: med(P.filter(p => !fix(p)).map(p => p.ttf)),
     battery_v_latest: r2(last.bat), battery_v_min: r2(Math.min(...P.map(p => p.bat))), battery_v_max: r2(Math.max(...P.map(p => p.bat))), battery_raw_latest: last.braw ?? '',
+    energy_now_j: Math.round(last.e), energy_soc_pct: Math.round(last.e / CAP_USABLE_J * 1000) / 10, energy_usable_j: Math.round(CAP_USABLE_J), energy_visible_max_j: Math.round(CAP_VISIBLE_J),
+    energy_net_j: Math.round(netJ), energy_net_per_day_j: Math.round(netJ / Math.max(1, spanDays)),
+    energy_min_j: Math.round(Math.min(...P.map(p => p.e))), energy_max_j: Math.round(Math.max(...P.map(p => p.e))),
+    at_ceiling_pct: P.some(p => p.braw != null) ? Math.round(P.filter(p => p.braw >= 254).length / P.length * 1000) / 10 : '',
+    cap_farads: CAP_F, cap_vmax: CAP_VMAX, cap_vmin: CAP_VMIN,
     temp_c_avg: r2(avg(P.map(p => p.temp))), temp_c_min: Math.min(...P.map(p => p.temp)), temp_c_max: Math.max(...P.map(p => p.temp)),
     msgs_with_activity: P.filter(p => p.acc > 0).length, activity_sum: P.reduce((s, p) => s + p.acc, 0),
     tower_readings_above_minus140: P.filter(p => p.r1 !== null && p.r1 > -140).length,
@@ -134,16 +150,24 @@ function compute(P, DEV, NAME, bucket, span) {
   const days = [];
   const step = bucket === 'hour' ? 3600e3 : 86400e3;
   for (let t = span.from; t < span.to; t += step) days.push(bucket === 'hour' ? new Date(t).toISOString().slice(0, 13) + ':00' : new Date(t).toISOString().slice(0, 10));
-  const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum', 'hdop_median', 'hdop_mean', 'hdop_excellent_pct', 'ttf_mean_s', 'ttf_p90_s'],
+  const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum', 'hdop_median', 'hdop_mean', 'hdop_excellent_pct', 'ttf_mean_s', 'ttf_p90_s', 'energy_net_j', 'energy_end_j'],
     days.map(d => { const a = byDay.get(d) || []; if (!a.length) return { date: d, messages: 0, missing_before: 0, no_fix: 0, msgs_with_activity: 0, activity_sum: 0 };
       return { date: d, messages: a.length, missing_before: a.reduce((s, p) => s + p.miss, 0), no_fix: a.filter(p => !fix(p)).length,
         battery_v_avg: r2(avg(a.map(p => p.bat))), battery_v_min: r2(Math.min(...a.map(p => p.bat))), battery_v_max: r2(Math.max(...a.map(p => p.bat))),
         temp_c_avg: r2(avg(a.map(p => p.temp))), temp_c_min: Math.min(...a.map(p => p.temp)), temp_c_max: Math.max(...a.map(p => p.temp)),
-        ttf_s_median_fixed: med(a.filter(fix).map(p => p.ttf)), msgs_with_activity: a.filter(p => p.acc > 0).length, activity_sum: a.reduce((s, p) => s + p.acc, 0), ...gpsq(a) }; }));
+        ttf_s_median_fixed: med(a.filter(fix).map(p => p.ttf)), msgs_with_activity: a.filter(p => p.acc > 0).length, activity_sum: a.reduce((s, p) => s + p.acc, 0), ...gpsq(a), energy_net_j: Math.round(a.reduce((s, p) => s + p.de, 0)), energy_end_j: Math.round(a[a.length - 1].e) }; }));
   const hourly = csv(['hour_sast', 'messages', 'battery_v_avg', 'temp_c_avg', 'acc_sum', 'no_fix'],
     [...grp(P, 'hk')].map(([h, a]) => ({ hour_sast: h + ':00', messages: a.length, battery_v_avg: r2(avg(a.map(p => p.bat))), temp_c_avg: r2(avg(a.map(p => p.temp))), acc_sum: a.reduce((s, p) => s + p.acc, 0), no_fix: a.filter(p => !fix(p)).length })));
-  const hod = csv(['hour_sast', 'messages', 'temp_c_avg', 'activity_sum', 'fixes', 'ttf_median_s', 'hdop_mean'],
-    Array.from({ length: 24 }, (_, h) => { const a = P.filter(p => p.hr === h), f = a.filter(fix); return { hour_sast: h, messages: a.length, temp_c_avg: a.length ? r2(avg(a.map(p => p.temp))) : '', activity_sum: a.reduce((s, p) => s + p.acc, 0), fixes: f.length, ttf_median_s: med(f.map(p => p.ttf)), hdop_mean: f.length ? r2(avg(f.map(p => p.hdop))) : '' }; }));
+  // Net power by hour of day: energy change over time between consecutive messages up to 90 min apart,
+  // credited to the hour (SAST) of their midpoint.
+  const pw = Array.from({ length: 24 }, () => ({ j: 0, s: 0 }));
+  for (let i = 1; i < P.length; i++) {
+    const t0 = Date.parse(P[i - 1].utc), t1 = Date.parse(P[i].utc), dt = (t1 - t0) / 1000;
+    if (dt <= 0 || dt > 90 * 60) continue;
+    const h = new Date((t0 + t1) / 2 + 2 * 3600e3).getUTCHours(); pw[h].j += P[i].de; pw[h].s += dt;
+  }
+  const hod = csv(['hour_sast', 'messages', 'temp_c_avg', 'activity_sum', 'fixes', 'ttf_median_s', 'hdop_mean', 'net_power_mw'],
+    Array.from({ length: 24 }, (_, h) => { const a = P.filter(p => p.hr === h), f = a.filter(fix); return { hour_sast: h, messages: a.length, temp_c_avg: a.length ? r2(avg(a.map(p => p.temp))) : '', activity_sum: a.reduce((s, p) => s + p.acc, 0), fixes: f.length, ttf_median_s: med(f.map(p => p.ttf)), hdop_mean: f.length ? r2(avg(f.map(p => p.hdop))) : '', net_power_mw: pw[h].s ? Math.round(pw[h].j / pw[h].s * 1000 * 10) / 10 : '' }; }));
   const gps_quality = csv(['kind', 'bin', 'count', 'pct'], [
     ...HDOP_BINS.map(([bin, t]) => { const c = P.filter(p => fix(p) && t(p.hdop)).length; return { kind: 'hdop', bin, count: c, pct: Math.round(c / P.length * 1000) / 10 }; }),
     { kind: 'hdop', bin: 'No fix', count: P.length - fixes.length, pct: Math.round((P.length - fixes.length) / P.length * 1000) / 10 },
@@ -158,7 +182,7 @@ function compute(P, DEV, NAME, bucket, span) {
   const fix_points = 'lat,lon,window,fixes,acc_sum,hdop_mean,ttf_mean_s\n' + [...cell.values()].map(o => `${(o.la / o.n).toFixed(5)},${(o.lo / o.n).toFixed(5)},${o.w},${o.n},${o.a},${r2(o.h / o.n)},${Math.round(o.t / o.n)}`).join('\n') + '\n';
   const tr = []; let prev = null; fixes.forEach(p => { const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3); if (k !== prev) { tr.push(`${p.sast},${p.lat.toFixed(5)},${p.lon.toFixed(5)},${win(p.hr)}`); prev = k; } });
   const track = 'time_sast,lat,lon,window\n' + tr.join('\n') + '\n';
-  const battery = 'time_sast,battery_v,battery_raw\n' + P.map(p => `${p.sast.replace(' ', 'T')},${r3(p.bat)},${p.braw ?? ''}`).join('\n') + '\n';
+  const battery = 'time_sast,battery_v,battery_raw,energy_j\n' + P.map(p => `${p.sast.replace(' ', 'T')},${r3(p.bat)},${p.braw ?? ''},${Math.round(p.e)}`).join('\n') + '\n';
   const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track, 'gps_quality.csv': gps_quality, 'battery.csv': battery };
   return { out, P, first, last };
 }
