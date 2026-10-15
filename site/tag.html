@@ -74,7 +74,7 @@
 // Minimal stand-in for the Claude dashboard runtime: loads the encrypted data for the tag in ?id=, decrypts it
 // with the visitor's password (lock.js), recomputes calcs, redraws, and checks for new data every 10 minutes.
 window.dash = (() => {
-  const FILES = { summary: 'summary.csv', daily: 'daily.csv', hourly: 'hourly.csv', hod: 'hour_of_day.csv', locations: 'locations_top10.csv', gaps: 'longest_gaps.csv', fix_points: 'fix_points.csv', track: 'track.csv', gps: 'gps_quality.csv' };
+  const FILES = { summary: 'summary.csv', daily: 'daily.csv', hourly: 'hourly.csv', hod: 'hour_of_day.csv', locations: 'locations_top10.csv', gaps: 'longest_gaps.csv', fix_points: 'fix_points.csv', track: 'track.csv', gps: 'gps_quality.csv', battery: 'battery.csv' };
   const REFRESH_MS = 10 * 60 * 1000;
   const store = {}, calcs = {}, cbs = [];
   const TAG = (new URLSearchParams(location.search).get('id') || '').toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 8);
@@ -251,13 +251,13 @@ window.dash = (() => {
     </div>
     <div class="lx-card">
       <h3>Longest silences</h3>
-      <p class="lx-note">Gaps of more than 4.5 hours (270 min) between received messages, longest first.</p>
+      <p class="lx-note">Gaps of more than 4 h 30 min between received messages, longest first.</p>
       <div class="lx-tbl-wrap">
         <table class="lx-tbl" id="tbl-gaps" data-source="gaps" data-row-key="from_sast">
           <thead><tr>
             <th data-field="from_sast">From (SAST)</th>
             <th data-field="to_sast">To (SAST)</th>
-            <th data-field="gap_minutes" class="lx-num">Minutes</th>
+            <th data-field="gap_minutes" class="lx-num">Duration</th>
             <th data-field="seq_skipped" class="lx-num">Seq skipped</th>
           </tr></thead><tbody></tbody>
         </table>
@@ -268,9 +268,9 @@ window.dash = (() => {
   <h2 class="lx-sec" id="health">Device health</h2>
   <div class="lx-grid">
     <div class="lx-card">
-      <h3>Battery voltage, hourly average</h3>
+      <h3>Battery voltage, every reading</h3>
       <p class="lx-note">Lowest reading in the period: <span data-source="summary" data-field="battery_v_min" data-row="0">—</span> V. Jumps back to 3.6 V look like recharges.</p>
-      <div class="lx-chart" id="chart-battery" data-source="hourly"></div>
+      <div class="lx-chart" id="chart-battery" data-source="battery"></div>
     </div>
     <div class="lx-card">
       <h3>Temperature, hourly average</h3>
@@ -444,10 +444,12 @@ dash.calc('nofix_daily', {
 });
 
 const fInt = d3.format(',');
+const fHM = m => m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor(m % 1440 / 60)} h ${m % 60} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
 const parseH = d3.utcParse('%Y-%m-%dT%H:%M');
 const parseD = d3.utcParse('%Y-%m-%d');
 const fDay = d3.utcFormat('%b %-d');
 const fDayH = d3.utcFormat('%b %-d, %H:00');
+const fDayM = d3.utcFormat('%b %-d, %H:%M');
 const fHour = d3.utcFormat('%H:%M');
 const isHourly = () => dash.bucket() === 'hour';
 const parseK = k => k.length > 10 ? parseH(k) : parseD(k);
@@ -511,8 +513,11 @@ function lineChart(box, rows, opt) {
   rows.forEach((d, i) => { if (i && d.x - rows[i - 1].x > 3 * 3600e3) pts.push(null); pts.push(d); });
   svg.append('path').datum(pts)
     .attr('d', d3.line().defined(d => d).x(d => x(d.x)).y(d => y(d.y)))
-    .attr('fill', 'none').attr('stroke', opt.color).attr('stroke-width', 2)
+    .attr('fill', 'none').attr('stroke', opt.color).attr('stroke-width', opt.thin ? 1 : 2).attr('stroke-opacity', opt.thin ? 0.2 : 1)
     .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  // One dot per reading; smaller when there are many so steps stay readable.
+  if (opt.dots) svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', d => x(d.x)).attr('cy', d => y(d.y))
+    .attr('r', rows.length > 1500 ? 1.4 : rows.length > 400 ? 1.8 : 2.4).attr('fill', opt.color).attr('fill-opacity', 0.75);
   const dot = svg.append('circle').attr('r', 4).attr('fill', opt.color).style('display', 'none');
   const tip = tipOf(box);
   const bis = d3.bisector(d => d.x).center;
@@ -521,7 +526,7 @@ function lineChart(box, rows, opt) {
     .on('pointermove', (ev) => {
       const [px] = d3.pointer(ev); const d = rows[bis(rows, x.invert(px))];
       dot.style('display', null).attr('cx', x(d.x)).attr('cy', y(d.y));
-      tipLines(tip, fDayH(d.x) + ' SAST', opt.tip(d));
+      tipLines(tip, opt.tipHead ? opt.tipHead(d) : fDayH(d.x) + ' SAST', opt.tip(d));
       const s = box.clientWidth / W; placeTip(tip, box, x(d.x) * s, y(d.y) * s);
     })
     .on('pointerleave', () => { dot.style('display', 'none'); tip.style.display = 'none'; });
@@ -753,11 +758,13 @@ dash.onData(() => {
   // hourly battery + temp
   const Hh = dash.data('hourly');
   const hrows = Hh.status === 'ok' ? Hh.data.map(d => ({ x: parseH(d.hour_sast), bat: Number(d.battery_v_avg), t: Number(d.temp_c_avg), n: Number(d.messages) })).sort((a, b) => a.x - b.x) : [];
-  const boxB = document.getElementById('chart-battery');
-  if (prep(boxB, Hh.status)) {
-    lineChart(boxB, hrows.map(d => ({ ...d, y: d.bat })), {
-      color: dash.colors[0], yDomain: [2.8, 3.7], yFmt: v => d3.format('.1f')(v) + ' V',
-      tip: d => [`${d3.format('.2f')(d.bat)} V avg`, `${d.n} messages`]
+  const BV = dash.data('battery'); const boxB = document.getElementById('chart-battery');
+  if (prep(boxB, BV.status)) {
+    const brows = BV.data.map(d => ({ x: parseH(d.time_sast), y: Number(d.battery_v) })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x);
+    const [lo, hi] = d3.extent(brows, d => d.y);
+    lineChart(boxB, brows, {
+      color: dash.colors[0], yDomain: [Math.min(2.8, (lo ?? 3) - 0.1), Math.max(3.7, (hi ?? 3.6) + 0.1)], yFmt: v => d3.format('.1f')(v) + ' V',
+      dots: true, thin: true, tipHead: d => fDayM(d.x) + ' SAST', tip: d => [`${d3.format('.1f')(d.y)} V`]
     });
   }
   const boxT = document.getElementById('chart-temp');
@@ -866,10 +873,10 @@ dash.onData(() => {
   // tables
   const G = dash.data('gaps');
   const gapRows = G.data.filter(r => r.from_sast);
-  const gw = document.getElementById('tbl-gaps'); gw.closest('.lx-card').querySelector('.lx-note').textContent = 'Gaps of more than 4.5 hours (270 min) between received messages, longest first.' + (G.status === 'ok' && !gapRows.length ? ' None in this period.' : '');
+  const gw = document.getElementById('tbl-gaps'); gw.closest('.lx-card').querySelector('.lx-note').textContent = 'Gaps of more than 4 h 30 min between received messages, longest first.' + (G.status === 'ok' && !gapRows.length ? ' None in this period.' : '');
   fillTable(gw, G.status, gapRows, [
     { k: 'from_sast' }, { k: 'to_sast' },
-    { k: 'gap_minutes', num: true, f: v => fInt(Number(v)) },
+    { k: 'gap_minutes', num: true, f: v => fHM(Number(v)) },
     { k: 'seq_skipped', num: true, f: v => fInt(Number(v)) }
   ]);
   const L = dash.data('locations');

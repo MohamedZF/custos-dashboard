@@ -151,7 +151,8 @@ function compute(P, DEV, NAME, bucket, span) {
   const fix_points = 'lat,lon,window,fixes,acc_sum,hdop_mean,ttf_mean_s\n' + [...cell.values()].map(o => `${(o.la / o.n).toFixed(5)},${(o.lo / o.n).toFixed(5)},${o.w},${o.n},${o.a},${r2(o.h / o.n)},${Math.round(o.t / o.n)}`).join('\n') + '\n';
   const tr = []; let prev = null; fixes.forEach(p => { const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3); if (k !== prev) { tr.push(`${p.sast},${p.lat.toFixed(5)},${p.lon.toFixed(5)},${win(p.hr)}`); prev = k; } });
   const track = 'time_sast,lat,lon,window\n' + tr.join('\n') + '\n';
-  const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track, 'gps_quality.csv': gps_quality };
+  const battery = 'time_sast,battery_v\n' + P.map(p => `${p.sast.replace(' ', 'T')},${p.bat}`).join('\n') + '\n';
+  const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track, 'gps_quality.csv': gps_quality, 'battery.csv': battery };
   return { out, P, first, last };
 }
 

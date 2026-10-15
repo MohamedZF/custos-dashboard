@@ -23,9 +23,10 @@ function csv(dev) {
     const lon = fix ? (site[1] + (rnd() - 0.5) * 0.0004).toFixed(6) : '';
     const acc = day && rnd() < 0.15 ? Math.floor(rnd() * 6) : 0;
     lines.push([ dev, name, new Date(t).toISOString().replace(/\.\d+Z$/, '.000Z'), sastH, 0, seq, 'ab', lat, lon,
-      fix ? (rnd() < 0.08 ? 3 + Math.floor(rnd() * 8) : Math.floor(rnd() * 3)) : 99, (3.2 + rnd() * 0.4).toFixed(1), Math.round(6 + 10 * Math.sin((sastH - 6) / 24 * 2 * Math.PI) + 6),
+      fix ? (rnd() < 0.08 ? 3 + Math.floor(rnd() * 8) : Math.floor(rnd() * 3)) : 99, (dev === '3B4D868' && t > Date.parse('2026-10-10T00:00:00Z') ? 2.6 + rnd() * 0.3 : 3.2 + rnd() * 0.4).toFixed(1), Math.round(6 + 10 * Math.sin((sastH - 6) / 24 * 2 * Math.PI) + 6),
       acc, fix ? Math.floor(rnd() < 0.6 ? rnd() * 10 : rnd() * 60) : (dev === '3B4D868' ? 119 : 64), '', '', '', '', '', '', skipped, '66.4' ].map(q).join(','));
     t += (8 + rnd() * 6) * 60e3;
+    if (dev === '3B4D874' && Math.abs(t - Date.parse('2026-10-12T02:00:00Z')) < 7 * 60e3) t += 6.4 * 3600e3; // a long silence
   }
   return lines.join('\r\n');
 }

@@ -152,6 +152,8 @@
   // Tag colours avoid red and orange, which mean "missing" in the delivery charts.
   const PALETTE = ['var(--s1)', 'var(--s4)', 'var(--s6)', 'var(--s3)', 'var(--s8)', 'var(--s7)', 'var(--s2)', 'var(--s5)'];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fHM = m => m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor(m % 1440 / 60)} h ${m % 60} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+  const fDayM = d3.utcFormat('%b %-d, %H:%M');
   const fInt = d3.format(','), f1 = d3.format('.1f'), f2 = d3.format('.2f');
   const parseH = d3.utcParse('%Y-%m-%dT%H:%M'), parseD = d3.utcParse('%Y-%m-%d');
   const parseK = k => k.length > 10 ? parseH(k) : parseD(k);
@@ -330,8 +332,9 @@
       const pts = [];
       s.rows.forEach((d, i) => { if (i && xv(d) - xv(s.rows[i - 1]) > o.gap) pts.push(null); pts.push(d); });
       svg.append('path').datum(pts).attr('d', d3.line().defined(d => d && Number.isFinite(d.y)).x(d => x(d.x)).y(d => y(d.y)))
-        .attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
-      if (s.rows.length <= 40) svg.append('g').selectAll('circle').data(s.rows.filter(d => Number.isFinite(d.y))).join('circle').attr('cx', d => x(d.x)).attr('cy', d => y(d.y)).attr('r', 2.5).attr('fill', s.color);
+        .attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', o.thin ? 1 : 2).attr('stroke-opacity', o.thin ? 0.2 : 1).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+      if (o.dots) svg.append('g').selectAll('circle').data(s.rows.filter(d => Number.isFinite(d.y))).join('circle').attr('cx', d => x(d.x)).attr('cy', d => y(d.y)).attr('r', s.rows.length > 1500 ? 1.4 : s.rows.length > 400 ? 1.8 : 2.4).attr('fill', s.color).attr('fill-opacity', 0.7);
+      else if (s.rows.length <= 40) svg.append('g').selectAll('circle').data(s.rows.filter(d => Number.isFinite(d.y))).join('circle').attr('cx', d => x(d.x)).attr('cy', d => y(d.y)).attr('r', 2.5).attr('fill', s.color);
     });
     const rule = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-reference)').style('display', 'none');
     const dots = series.map(s => svg.append('circle').attr('r', 4.5).attr('fill', s.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).style('display', 'none'));
@@ -455,7 +458,7 @@
           ['Temperature range', t => `${S(t).temp_c_min} to ${S(t).temp_c_max} °C`],
           ['Messages with activity', t => fInt(S(t).msgs_with_activity)],
           ['ACC sum', t => fInt(S(t).activity_sum)],
-          ['Longest silence', t => { const g = d3.max(t.F.longest_gaps, r => n(r.gap_minutes)); return g ? `${Math.floor(g / 60)} h ${g % 60} min` : 'under 4.5 h'; }, t => d3.max(t.F.longest_gaps, r => n(r.gap_minutes)) || 0, 'min'],
+          ['Longest silence', t => { const g = d3.max(t.F.longest_gaps, r => n(r.gap_minutes)); return g ? fHM(g) : 'under 4 h 30 min'; }, t => d3.max(t.F.longest_gaps, r => n(r.gap_minutes)) || 0, 'min'],
           ['First message', t => S(t).first_message_sast],
           ['Last message', t => S(t).last_message_sast],
         ];
@@ -505,12 +508,15 @@
       },
     },
     battery: {
-      title: ctx => `Battery voltage, hourly average, ${ctx.label}`,
-      note: () => 'Average battery reading in each hour. Jumps back up usually mean a recharge.',
+      title: ctx => `Battery voltage, every reading, ${ctx.label}`,
+      note: () => 'Each dot is one message\'s battery reading; the tags report in 0.1 V steps. Jumps back up usually mean a recharge. Hover to see each tag\'s nearest reading.',
       draw(card, ctx) {
         card.appendChild(legend(ctx, t => `now ${t.F.summary[0].battery_v_latest} V, lowest ${t.F.summary[0].battery_v_min} V`));
-        multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.hourly, 'hour_sast', d => n(d.battery_v_avg)) })),
-          lineOpts(ctx, { yFmt: v => f1(v) + ' V', gap: 3 * 3600e3, tol: 0.6 * 3600e3, tipFmt: d => `${f2(d.y)} V`, head: x => fDayH(x) + ' SAST' }));
+        const span = ctx.win[1] - ctx.win[0];
+        const series = ctx.tags.map(t => ({ name: t.name, color: t.color, rows: (t.F.battery || []).map(d => ({ x: parseH(d.time_sast), y: n(d.battery_v), d })).filter(d => d.x).sort((a, b) => a.x - b.x) }));
+        const ys = series.flatMap(s => s.rows.map(d => d.y));
+        multiLine(chartBox(card), series,
+          lineOpts(ctx, { yDomain: [Math.min(2.8, (d3.min(ys) ?? 3) - 0.1), Math.max(3.7, (d3.max(ys) ?? 3.6) + 0.1)], yFmt: v => f1(v) + ' V', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${f1(d.y)} V at ${fHour(d.x)}`, head: x => fDayM(x) + ' SAST' }));
       },
     },
     temp: {
