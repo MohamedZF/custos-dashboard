@@ -86,10 +86,9 @@ const batRaw = payload => /^[0-9a-f]{24}$/i.test(payload) ? parseInt(payload.sli
 const batVolts = raw => 2.5 + raw * 1.1 / 255;
 const r3 = x => Math.round(x * 1000) / 1000;
 
-// Energy store: a 400 F hybrid supercap, 4.0 V when full. Usable energy is counted above 2.5 V, the bottom of
+// Energy store: a 400 F hybrid supercap. The tag charges it only up to 3.6 V, so 3.6 V is full (raw 255). Usable energy is counted above 2.5 V, the bottom of
 // the battery scale and the usual lower limit of a hybrid (lithium-ion) capacitor: E = 1/2 C (V^2 - Vmin^2).
-// The raw reading tops out at 3.6 V, so energy stored between 3.6 V and 4.0 V cannot be seen.
-const CAP_F = Number(process.env.CAP_FARADS || 400), CAP_VMAX = Number(process.env.CAP_VMAX || 4.0), CAP_VMIN = Number(process.env.CAP_VMIN || 2.5);
+const CAP_F = Number(process.env.CAP_FARADS || 400), CAP_VMAX = Number(process.env.CAP_VMAX || 3.6), CAP_VMIN = Number(process.env.CAP_VMIN || 2.5);
 const capJ = v => 0.5 * CAP_F * (Math.max(v, CAP_VMIN) ** 2 - CAP_VMIN ** 2);
 const CAP_USABLE_J = capJ(CAP_VMAX), CAP_VISIBLE_J = capJ(3.6);
 
@@ -136,6 +135,7 @@ function compute(P, DEV, NAME, bucket, span) {
     energy_now_j: Math.round(last.e), energy_soc_pct: Math.round(last.e / CAP_USABLE_J * 1000) / 10, energy_usable_j: Math.round(CAP_USABLE_J), energy_visible_max_j: Math.round(CAP_VISIBLE_J),
     energy_net_j: Math.round(netJ), energy_net_per_day_j: Math.round(netJ / Math.max(1, spanDays)),
     energy_min_j: Math.round(Math.min(...P.map(p => p.e))), energy_max_j: Math.round(Math.max(...P.map(p => p.e))),
+    // Share of readings with the supercap full (raw 254-255, i.e. 3.6 V): solar beyond that cannot be stored.
     at_ceiling_pct: P.some(p => p.braw != null) ? Math.round(P.filter(p => p.braw >= 254).length / P.length * 1000) / 10 : '',
     cap_farads: CAP_F, cap_vmax: CAP_VMAX, cap_vmin: CAP_VMIN,
     temp_c_avg: r2(avg(P.map(p => p.temp))), temp_c_min: Math.min(...P.map(p => p.temp)), temp_c_max: Math.max(...P.map(p => p.temp)),

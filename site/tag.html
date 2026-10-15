@@ -280,7 +280,7 @@ window.dash = (() => {
   </div>
 
   <h2 class="lx-sec" id="energy">Solar energy balance</h2>
-  <p class="lx-sec-note">The tag runs on a <span data-source="summary" data-field="cap_farads" data-row="0">400</span> F hybrid supercap, full at <span data-source="summary" data-field="cap_vmax" data-row="0">4.0</span> V. Stored energy is E = ½CV², counted above <span data-source="summary" data-field="cap_vmin" data-row="0">2.5</span> V, so a full supercap holds <span data-source="summary" data-field="energy_usable_j" data-row="0">1,950</span> J of usable energy. Net energy is the change in stored energy: solar harvest minus what the tag used. Green is net charging, amber is net drain. The battery reading stops at 3.6 V (<span data-source="summary" data-field="energy_visible_max_j" data-row="0">1,342</span> J), so energy stored above that is not seen.</p>
+  <p class="lx-sec-note">The tag runs on a <span data-source="summary" data-field="cap_farads" data-row="0">400</span> F hybrid supercap, which the tag charges up to <span data-source="summary" data-field="cap_vmax" data-row="0">3.6</span> V. Stored energy is E = ½CV², counted above <span data-source="summary" data-field="cap_vmin" data-row="0">2.5</span> V, so a full supercap holds <span data-source="summary" data-field="energy_usable_j" data-row="0">1,342</span> J of usable energy. Net energy is the change in stored energy: solar harvest minus what the tag used. Green is net charging, amber is net drain. Once the supercap is full, extra sunlight cannot be stored, so the net figures show what the tag kept, not everything the panel could have delivered.</p>
   <section class="lx-kpis" aria-label="Energy figures">
     <div class="lx-kpi">
       <span class="lx-label">Stored now</span>
@@ -300,7 +300,7 @@ window.dash = (() => {
     <div class="lx-kpi">
       <span class="lx-label">Stored energy range</span>
       <span class="lx-big"><span data-source="summary" data-field="energy_min_j" data-row="0" class="dash-skeleton">—</span><span class="lx-unit">to</span> <span data-source="summary" data-field="energy_max_j" data-row="0">—</span><span class="lx-unit">J</span></span>
-      <span class="lx-sub">at the 3.6 V ceiling <span data-source="summary" data-field="at_ceiling_pct" data-row="0">—</span>% of the time</span>
+      <span class="lx-sub">full (3.6 V) <span data-source="summary" data-field="at_ceiling_pct" data-row="0">—</span>% of the time</span>
     </div>
   </section>
   <div class="lx-grid">
@@ -317,7 +317,7 @@ window.dash = (() => {
   </div>
   <div class="lx-card">
     <h3>Stored energy</h3>
-    <p class="lx-note">Usable energy in the supercap at each reading, in joules. The dashed line is 3.6 V, the highest the battery reading can show.</p>
+    <p class="lx-note">Usable energy in the supercap at each reading, in joules. The top of the chart is full (3.6 V).</p>
     <div class="lx-chart" id="chart-energy" data-source="battery"></div>
   </div>
 
@@ -732,7 +732,7 @@ function energyLine(S, hod) {
   let t = `The supercap ${net >= 0 ? 'gained' : 'lost'} ${fInt(Math.abs(net))} J over the range (${perDay >= 0 ? '+' : ''}${fInt(perDay)} J a day) and holds ${fInt(S.energy_now_j)} J now, ${S.energy_soc_pct}% of usable capacity.`;
   if (best && best.v > 0) t += ` Solar charging peaks around ${hh(best.h)} (+${d3.format('.1f')(best.v)} mW)`;
   if (worst && worst.v < 0) t += `${best && best.v > 0 ? ';' : ''} the heaviest net drain is around ${hh(worst.h)} (${d3.format('.1f')(worst.v)} mW).`; else if (best && best.v > 0) t += '.';
-  if (Number(S.at_ceiling_pct) >= 5) t += ` It sat at the 3.6 V reading ceiling ${S.at_ceiling_pct}% of the time, so some harvested energy above 3.6 V is not counted.`;
+  if (Number(S.at_ceiling_pct) >= 5) t += ` It was full (3.6 V) ${S.at_ceiling_pct}% of the time; while full, extra sunlight cannot be stored, so the panel could deliver more than the net figures show.`;
   return [t];
 }
 function gpsLine(S, hod) {
@@ -899,7 +899,7 @@ dash.onData(() => {
   const boxE = document.getElementById('chart-energy');
   if (prep(boxE, BV.status) && S.status === 'ok' && S.data.length) {
     const erows = BV.data.map(d => ({ x: parseH(d.time_sast), y: Number(d.energy_j), v: d.battery_v })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x);
-    lineChart(boxE, erows, { color: 'var(--color-ok)', yDomain: [0, Number(S.data[0].energy_usable_j) || 1950], ref: Number(S.data[0].energy_visible_max_j), yFmt: v => fInt(v) + ' J',
+    lineChart(boxE, erows, { color: 'var(--color-ok)', yDomain: [0, Number(S.data[0].energy_usable_j) || 1342], yFmt: v => fInt(v) + ' J',
       dots: true, thin: true, tipHead: d => fDayM(d.x) + ' SAST', tip: d => [`${fInt(d.y)} J stored`, `${d3.format('.3f')(d.v)} V`] });
   }
 

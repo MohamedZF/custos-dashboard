@@ -464,7 +464,7 @@
           ['Stored energy now', t => S(t).energy_now_j == null || S(t).energy_now_j === '' ? '—' : `${fInt(S(t).energy_now_j)} J (${S(t).energy_soc_pct}%)`, t => n(S(t).energy_now_j), 'max'],
           ['Net energy over range', t => S(t).energy_net_j == null || S(t).energy_net_j === '' ? '—' : `${+S(t).energy_net_j > 0 ? '+' : ''}${fInt(S(t).energy_net_j)} J`, t => n(S(t).energy_net_j), 'max'],
           ['Net energy per day', t => S(t).energy_net_per_day_j == null || S(t).energy_net_per_day_j === '' ? '—' : `${+S(t).energy_net_per_day_j > 0 ? '+' : ''}${fInt(S(t).energy_net_per_day_j)} J`, t => n(S(t).energy_net_per_day_j), 'max'],
-          ['Time at 3.6 V reading ceiling', t => S(t).at_ceiling_pct == null || S(t).at_ceiling_pct === '' ? '—' : S(t).at_ceiling_pct + '%'],
+          ['Time full (3.6 V)', t => S(t).at_ceiling_pct == null || S(t).at_ceiling_pct === '' ? '—' : S(t).at_ceiling_pct + '%'],
           ['Temperature, avg', t => f1(S(t).temp_c_avg) + ' °C'],
           ['Temperature range', t => `${S(t).temp_c_min} to ${S(t).temp_c_max} °C`],
           ['Messages with activity', t => fInt(S(t).msgs_with_activity)],
@@ -565,7 +565,7 @@
     },
     energynet: {
       title: ctx => `Net energy per ${ctx.hourly ? 'hour' : 'day'}, ${ctx.label}`,
-      note: ctx => `Change in energy stored in each tag's 400 F supercap for each ${ctx.hourly ? 'hour' : 'day'} (E = ½CV², counted above 2.5 V). Above zero, solar harvest beat what the tag used. Energy above the 3.6 V reading ceiling is not seen.`,
+      note: ctx => `Change in energy stored in each tag's 400 F supercap for each ${ctx.hourly ? 'hour' : 'day'} (E = ½CV², counted above 2.5 V). Above zero, solar harvest beat what the tag used. Once the supercap is full (3.6 V), extra sunlight cannot be stored.`,
       draw(card, ctx) {
         card.appendChild(legend(ctx, t => { const v = +t.F.summary[0].energy_net_per_day_j; return Number.isFinite(v) ? `${v > 0 ? '+' : ''}${fInt(v)} J per day` : ''; }));
         multiLine(chartBox(card), ctx.tags.map(t => ({ name: t.name, color: t.color, rows: timeRows(t.F.daily, 'date', d => n(d.energy_net_j)) })),
@@ -583,12 +583,12 @@
     },
     energy: {
       title: ctx => `Stored energy, ${ctx.label}`,
-      note: () => 'Usable energy in each tag\'s 400 F supercap at every reading (E = ½CV² above 2.5 V; full at 4.0 V = 1,950 J). The dashed line is 3.6 V (1,342 J), the highest the battery reading can show.',
+      note: () => 'Usable energy in each tag\'s 400 F supercap at every reading (E = ½CV² above 2.5 V). The tag charges it up to 3.6 V, so the top of the chart, 1,342 J, is full.',
       draw(card, ctx) {
         card.appendChild(legend(ctx, t => `now ${fInt(t.F.summary[0].energy_now_j)} J (${t.F.summary[0].energy_soc_pct}%)`));
         const span = ctx.win[1] - ctx.win[0];
         const series = ctx.tags.map(t => ({ name: t.name, color: t.color, rows: (t.F.battery || []).map(d => ({ x: parseH(d.time_sast), y: n(d.energy_j), d })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x) }));
-        multiLine(chartBox(card), series, lineOpts(ctx, { yDomain: [0, +ctx.tags[0].F.summary[0].energy_usable_j || 1950], ref: +ctx.tags[0].F.summary[0].energy_visible_max_j || 1342, yFmt: v => fInt(v) + ' J', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${fInt(d.y)} J (${d3.format('.3f')(+d.d.battery_v)} V)`, head: x => fDayM(x) + ' SAST' }));
+        multiLine(chartBox(card), series, lineOpts(ctx, { yDomain: [0, +ctx.tags[0].F.summary[0].energy_usable_j || 1342], yFmt: v => fInt(v) + ' J', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${fInt(d.y)} J (${d3.format('.3f')(+d.d.battery_v)} V)`, head: x => fDayM(x) + ' SAST' }));
       },
     },
     ttf: {
