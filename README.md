@@ -51,6 +51,10 @@ Edit `TAGS` in `.github/workflows/update.yml`, one tag per line as `SIGFOX_ID=Na
 
 Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the past 30 days shows on the homepage as "No messages" with no dashboard link.
 
+## Battery
+
+Battery charts use the raw battery byte from each message payload (byte 10, 0–255), converted the same way Field Signal does: **2.5 V + raw × 1.1 / 255**, so raw 255 = 3.6 V and raw 0 = 2.5 V. This matched the export's 0.1 V battery column on every message checked (6,718 across four tags) and gives steps of about 0.004 V instead of 0.1 V.
+
 ## GPS quality (time to fix and HDOP)
 
 Each dashboard has a GPS quality section: time to fix (TTF) and HDOP per hour or day, their distributions, and both by hour of day, plus headline tiles and map tooltips. TTF statistics use only messages that got a fix, because the TTF reported on a failed attempt depends on the tag's firmware timeout (64 s on most tags; 11.1 SAC reports 0 or 119 s). HDOP bands: 0–1 excellent, 2–4 good, 5–9 moderate, 10+ poor; 99 means no fix.

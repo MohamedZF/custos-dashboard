@@ -509,14 +509,14 @@
     },
     battery: {
       title: ctx => `Battery voltage, every reading, ${ctx.label}`,
-      note: () => 'Each dot is one message\'s battery reading; the tags report in 0.1 V steps. Jumps back up usually mean a recharge. Hover to see each tag\'s nearest reading.',
+      note: () => 'Each dot is one message\'s raw battery value (0–255) converted to volts as 2.5 V + raw × 1.1 / 255, so 255 = 3.6 V. Jumps back up usually mean a recharge. Hover to see each tag\'s nearest reading.',
       draw(card, ctx) {
         card.appendChild(legend(ctx, t => `now ${t.F.summary[0].battery_v_latest} V, lowest ${t.F.summary[0].battery_v_min} V`));
         const span = ctx.win[1] - ctx.win[0];
         const series = ctx.tags.map(t => ({ name: t.name, color: t.color, rows: (t.F.battery || []).map(d => ({ x: parseH(d.time_sast), y: n(d.battery_v), d })).filter(d => d.x).sort((a, b) => a.x - b.x) }));
         const ys = series.flatMap(s => s.rows.map(d => d.y));
         multiLine(chartBox(card), series,
-          lineOpts(ctx, { yDomain: [Math.min(2.8, (d3.min(ys) ?? 3) - 0.1), Math.max(3.7, (d3.max(ys) ?? 3.6) + 0.1)], yFmt: v => f1(v) + ' V', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${f1(d.y)} V at ${fHour(d.x)}`, head: x => fDayM(x) + ' SAST' }));
+          lineOpts(ctx, { yDomain: [Math.min(2.8, (d3.min(ys) ?? 3) - 0.1), Math.max(3.7, (d3.max(ys) ?? 3.6) + 0.1)], yFmt: v => f1(v) + ' V', gap: 3 * 3600e3, tol: span / 120, dots: true, thin: true, tipFmt: d => `${d3.format('.3f')(d.y)} V${d.d.battery_raw ? ` (raw ${d.d.battery_raw})` : ''} at ${fHour(d.x)}`, head: x => fDayM(x) + ' SAST' }));
       },
     },
     temp: {

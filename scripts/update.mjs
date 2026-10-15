@@ -79,12 +79,19 @@ async function exportCsv(cookie, DEV) {
 }
 
 // Same calculations as the Claude dashboard's refresh, so both show identical numbers.
+// Battery: byte 10 of the 12-byte payload is the raw reading (0-255). Field Signal decodes it as
+// 2.5 V + raw x 1.1 / 255 (raw 255 = 3.6 V); this matches the export's 0.1 V column on every message checked.
+// Using the raw byte gives ~0.004 V steps instead of 0.1 V. Falls back to the export column if the payload is odd.
+const batRaw = payload => /^[0-9a-f]{24}$/i.test(payload) ? parseInt(payload.slice(18, 20), 16) : null;
+const batVolts = raw => 2.5 + raw * 1.1 / 255;
+const r3 = x => Math.round(x * 1000) / 1000;
+
 function parse(text) {
   if (text.trim().split('\n').length < 2) return [];
   const rows = text.trim().split('\n').slice(1).map(l => l.replace(/\r$/, '').slice(1, -1).split('","'));
   return rows.map(r => { const s = new Date(new Date(r[2]).getTime() + 2 * 3600e3); const iso = s.toISOString(); return {
     sast: iso.slice(0, 16).replace('T', ' '), day: iso.slice(0, 10), hr: s.getUTCHours(), hk: iso.slice(0, 13), utc: r[2],
-    seq: +r[5], lat: r[7] === '' ? null : +r[7], lon: r[8] === '' ? null : +r[8], hdop: +r[9], bat: +r[10], temp: +r[11], acc: +r[12], ttf: +r[13],
+    seq: +r[5], lat: r[7] === '' ? null : +r[7], lon: r[8] === '' ? null : +r[8], hdop: +r[9], braw: batRaw(r[6]), bat: batRaw(r[6]) === null ? +r[10] : batVolts(batRaw(r[6])), temp: +r[11], acc: +r[12], ttf: +r[13],
     r1: r[15] === '' ? null : +r[15], miss: +r[20] }; }).sort((a, b) => a.utc < b.utc ? -1 : 1);
 }
 
@@ -114,7 +121,7 @@ function compute(P, DEV, NAME, bucket, span) {
     delivery_pct: Math.round(P.length / expected * 1000) / 10, gps_fixes: fixes.length, no_fix: P.length - fixes.length,
     ttf_median_s: med(fixes.map(p => p.ttf)), ttf_over_60s: P.filter(p => p.ttf > 60).length, ...gpsq(P),
     no_fix_ttf_median_s: med(P.filter(p => !fix(p)).map(p => p.ttf)),
-    battery_v_latest: last.bat, battery_v_min: Math.min(...P.map(p => p.bat)), battery_v_max: Math.max(...P.map(p => p.bat)),
+    battery_v_latest: r2(last.bat), battery_v_min: r2(Math.min(...P.map(p => p.bat))), battery_v_max: r2(Math.max(...P.map(p => p.bat))), battery_raw_latest: last.braw ?? '',
     temp_c_avg: r2(avg(P.map(p => p.temp))), temp_c_min: Math.min(...P.map(p => p.temp)), temp_c_max: Math.max(...P.map(p => p.temp)),
     msgs_with_activity: P.filter(p => p.acc > 0).length, activity_sum: P.reduce((s, p) => s + p.acc, 0),
     tower_readings_above_minus140: P.filter(p => p.r1 !== null && p.r1 > -140).length,
@@ -130,7 +137,7 @@ function compute(P, DEV, NAME, bucket, span) {
   const daily = csv(['date', 'messages', 'missing_before', 'no_fix', 'battery_v_avg', 'battery_v_min', 'battery_v_max', 'temp_c_avg', 'temp_c_min', 'temp_c_max', 'ttf_s_median_fixed', 'msgs_with_activity', 'activity_sum', 'hdop_median', 'hdop_mean', 'hdop_excellent_pct', 'ttf_mean_s', 'ttf_p90_s'],
     days.map(d => { const a = byDay.get(d) || []; if (!a.length) return { date: d, messages: 0, missing_before: 0, no_fix: 0, msgs_with_activity: 0, activity_sum: 0 };
       return { date: d, messages: a.length, missing_before: a.reduce((s, p) => s + p.miss, 0), no_fix: a.filter(p => !fix(p)).length,
-        battery_v_avg: r2(avg(a.map(p => p.bat))), battery_v_min: Math.min(...a.map(p => p.bat)), battery_v_max: Math.max(...a.map(p => p.bat)),
+        battery_v_avg: r2(avg(a.map(p => p.bat))), battery_v_min: r2(Math.min(...a.map(p => p.bat))), battery_v_max: r2(Math.max(...a.map(p => p.bat))),
         temp_c_avg: r2(avg(a.map(p => p.temp))), temp_c_min: Math.min(...a.map(p => p.temp)), temp_c_max: Math.max(...a.map(p => p.temp)),
         ttf_s_median_fixed: med(a.filter(fix).map(p => p.ttf)), msgs_with_activity: a.filter(p => p.acc > 0).length, activity_sum: a.reduce((s, p) => s + p.acc, 0), ...gpsq(a) }; }));
   const hourly = csv(['hour_sast', 'messages', 'battery_v_avg', 'temp_c_avg', 'acc_sum', 'no_fix'],
@@ -151,7 +158,7 @@ function compute(P, DEV, NAME, bucket, span) {
   const fix_points = 'lat,lon,window,fixes,acc_sum,hdop_mean,ttf_mean_s\n' + [...cell.values()].map(o => `${(o.la / o.n).toFixed(5)},${(o.lo / o.n).toFixed(5)},${o.w},${o.n},${o.a},${r2(o.h / o.n)},${Math.round(o.t / o.n)}`).join('\n') + '\n';
   const tr = []; let prev = null; fixes.forEach(p => { const k = p.lat.toFixed(3) + ',' + p.lon.toFixed(3); if (k !== prev) { tr.push(`${p.sast},${p.lat.toFixed(5)},${p.lon.toFixed(5)},${win(p.hr)}`); prev = k; } });
   const track = 'time_sast,lat,lon,window\n' + tr.join('\n') + '\n';
-  const battery = 'time_sast,battery_v\n' + P.map(p => `${p.sast.replace(' ', 'T')},${p.bat}`).join('\n') + '\n';
+  const battery = 'time_sast,battery_v,battery_raw\n' + P.map(p => `${p.sast.replace(' ', 'T')},${r3(p.bat)},${p.braw ?? ''}`).join('\n') + '\n';
   const out = { 'summary.csv': summary, 'daily.csv': daily, 'hourly.csv': hourly, 'hour_of_day.csv': hod, 'locations_top10.csv': locations, 'longest_gaps.csv': gaps, 'fix_points.csv': fix_points, 'track.csv': track, 'gps_quality.csv': gps_quality, 'battery.csv': battery };
   return { out, P, first, last };
 }

@@ -269,7 +269,7 @@ window.dash = (() => {
   <div class="lx-grid">
     <div class="lx-card">
       <h3>Battery voltage, every reading</h3>
-      <p class="lx-note">Lowest reading in the period: <span data-source="summary" data-field="battery_v_min" data-row="0">—</span> V. Jumps back to 3.6 V look like recharges.</p>
+      <p class="lx-note">From each message's raw battery value (0–255), converted as 2.5 V + raw × 1.1 / 255, so 255 = 3.6 V. Lowest reading in the period: <span data-source="summary" data-field="battery_v_min" data-row="0">—</span> V.</p>
       <div class="lx-chart" id="chart-battery" data-source="battery"></div>
     </div>
     <div class="lx-card">
@@ -760,11 +760,11 @@ dash.onData(() => {
   const hrows = Hh.status === 'ok' ? Hh.data.map(d => ({ x: parseH(d.hour_sast), bat: Number(d.battery_v_avg), t: Number(d.temp_c_avg), n: Number(d.messages) })).sort((a, b) => a.x - b.x) : [];
   const BV = dash.data('battery'); const boxB = document.getElementById('chart-battery');
   if (prep(boxB, BV.status)) {
-    const brows = BV.data.map(d => ({ x: parseH(d.time_sast), y: Number(d.battery_v) })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x);
+    const brows = BV.data.map(d => ({ x: parseH(d.time_sast), y: Number(d.battery_v), raw: d.battery_raw })).filter(d => d.x && Number.isFinite(d.y)).sort((a, b) => a.x - b.x);
     const [lo, hi] = d3.extent(brows, d => d.y);
     lineChart(boxB, brows, {
       color: dash.colors[0], yDomain: [Math.min(2.8, (lo ?? 3) - 0.1), Math.max(3.7, (hi ?? 3.6) + 0.1)], yFmt: v => d3.format('.1f')(v) + ' V',
-      dots: true, thin: true, tipHead: d => fDayM(d.x) + ' SAST', tip: d => [`${d3.format('.1f')(d.y)} V`]
+      dots: true, thin: true, tipHead: d => fDayM(d.x) + ' SAST', tip: d => [`${d3.format('.3f')(d.y)} V`].concat(d.raw !== '' && d.raw != null ? [`Raw ${d.raw} of 255`] : [])
     });
   }
   const boxT = document.getElementById('chart-temp');
