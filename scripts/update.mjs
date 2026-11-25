@@ -1,10 +1,15 @@
 #!/usr/bin/env node
-// Fetches Custos tag data from Field Signal and writes the dashboard's data files.
-// Env: FIELD_SIGNAL_PASSCODE, SITE_PASSWORD (required), FIELD_SIGNAL_URL, TAGS, OUT_DIR
+// Fetches Custos tag data from Field Signal and writes the dashboard's data files. Also publishes the
+// Custos V12 tags in sigfox_tags.txt from the frame store that the Sigfox callback fills (store-frame.mjs).
+// Env: FIELD_SIGNAL_PASSCODE, SITE_PASSWORD (required), FIELD_SIGNAL_URL, TAGS, OUT_DIR, FRAMES_DIR
 // TAGS lists the tags to publish, one per line or separated by ';', as  DEVICE_ID=Display name
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { webcrypto as wc } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { decrypt as decryptStore, sigfoxTags } from './sitecrypto.mjs';
+const CF = createRequire(import.meta.url)('../site/custos-frames.js');
+const FRAMES_DIR = process.env.FRAMES_DIR || '_frames/frames';
 
 const BASE = (process.env.FIELD_SIGNAL_URL || 'https://field-signal-sigfox.johanm226618.chatgpt.site').replace(/\/$/, '');
 const PASSCODE = (process.env.FIELD_SIGNAL_PASSCODE || '').trim();
@@ -220,6 +225,34 @@ for (const tag of TAGS) {
   const meta = { generatedAt, device: tag.id, name: tag.name, lastMessageSast: last.sast, ranges: RANGES.map(r => r.key) };
   await writeFile(join(OUT, `tag-${tag.id}.enc.json`), await encrypt({ meta, ranges }));
   console.log(`${tag.name} (${tag.id}): ${counts.join(', ')} messages; last ${last.sast} SAST`);
+}
+// Custos V12 tags: frames from the Sigfox callback store. The page decodes the frames itself
+// (site/custos-frames.js); the homepage card gets its figures from here.
+for (const tag of await sigfoxTags()) {
+  let store = null;
+  try { store = await decryptStore(await readFile(join(FRAMES_DIR, `${tag.id}.enc.json`), 'utf8'), SITE_PASSWORD); }
+  catch (e) {
+    if (e.code !== 'ENOENT') { const m = `${tag.name} (${tag.id}): stored frames could not be opened (SITE_PASSWORD changed?): ${e.message}`; console.log(process.env.GITHUB_ACTIONS ? '::warning::' + m : 'WARNING: ' + m); }
+  }
+  const cut = now / 1000 - DAYS * 86400;
+  const fr = (store?.frames || []).filter(f => f.time >= cut).sort((a, b) => a.time - b.time);
+  if (!fr.length) { console.log(`${tag.name} (${tag.id}): no Sigfox frames in the last ${DAYS} days`); index.push({ id: tag.id, name: tag.name, kind: 'v2', messages: 0 }); continue; }
+  const sast = t => new Date(t * 1000 + 2 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
+  const dec = fr.map(f => ({ f, d: f.data && f.data.length === 24 ? CF.decode(CF.hexToBytes(f.data)) : null }));
+  // Delivery from Sigfox sequence numbers (12-bit, wrap at 4096): frames received / frames sent.
+  let expected = 1;
+  for (let i = 1; i < fr.length; i++) { const g = (fr[i].seq - fr[i - 1].seq + 4096) % 4096; expected += g || 0; }
+  const lastOf = type => [...dec].reverse().find(x => x.d && x.d.type === type)?.d;
+  const h = lastOf('health'), pos = [...dec].reverse().find(x => x.d && (x.d.type === 'position' || x.d.type === 'start-up'))?.d;
+  const mv = h ? h.supply_mv : pos ? pos.battery_mv : null;
+  const fixes = dec.filter(x => x.d && (x.d.type === 'position' || x.d.type === 'start-up') && (x.d.fix === 'FIX' || x.d.fix === 'FIX_POOR') && x.d.position).length;
+  const first = fr[0], last = fr[fr.length - 1];
+  index.push({ id: tag.id, name: tag.name, kind: 'v2', messages: fr.length, first_message_sast: sast(first.time), last_message_sast: sast(last.time),
+    last_message_utc: new Date(last.time * 1000).toISOString(), delivery_pct: Math.round(Math.min(1, fr.length / expected) * 1000) / 10,
+    battery_v_latest: mv === null ? '' : Math.round(mv / 10) / 100, gps_fixes: fixes, temp_c_latest: h ? h.temp_c : '', msgs_with_activity: '' });
+  const meta = { generatedAt, device: tag.id, name: tag.name, kind: 'v2', lastMessageSast: sast(last.time), days: DAYS };
+  await writeFile(join(OUT, `tag-${tag.id}.enc.json`), await encrypt({ meta, frames: fr }));
+  console.log(`${tag.name} (${tag.id}): ${fr.length} Sigfox frames in ${DAYS} days; last ${sast(last.time)} SAST`);
 }
 const home = { generatedAt, days: 30, tags: index };
 await writeFile(join(OUT, 'tags.enc.json'), await encrypt(home));

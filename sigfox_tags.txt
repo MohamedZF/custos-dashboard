@@ -1,0 +1,3 @@
+# Tags whose frames come straight from the Sigfox backend by callback (Custos V12 frames).
+# One per line:  SIGFOX_ID=Name shown on the site. Frames from any other device are ignored.
+3B4D873=Custos V12 bench

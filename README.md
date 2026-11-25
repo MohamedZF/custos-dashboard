@@ -52,6 +52,42 @@ Edit `TAGS` in `.github/workflows/update.yml`, one tag per line as `SIGFOX_ID=Na
 
 Commit the change; the next run adds the tag's card to the homepage. Device IDs are listed on the Field Signal dashboard. A tag with no messages in the past 30 days shows on the homepage as "No messages" with no dashboard link.
 
+## Custos V12 tags (Sigfox callback)
+
+Custos V12 tags send a different frame layout (position, activity, health and start-up frames, agreed 16 Nov 2026) and do not go through Field Signal. The Sigfox backend sends each frame straight to GitHub by callback:
+
+```
+Sigfox backend --callback--> GitHub API (repository_dispatch "sigfox")
+   -> .github/workflows/sigfox.yml: scripts/store-frame.mjs adds the frame, encrypted, to the frames branch
+   -> starts "Update dashboard", which publishes site/tag2.html?id=<ID> (decoded in the browser by site/custos-frames.js)
+```
+
+A frame usually shows on the site 2 to 4 minutes after the backend receives it.
+
+**Tags.** List them in `sigfox_tags.txt`, one per line as `SIGFOX_ID=Name`. Frames from other devices are ignored.
+
+**Set up the callback (once per Sigfox device type):**
+
+1. **Make a GitHub token.** GitHub → *Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token*. Repository access: **Only select repositories → custos-dashboard**. Permissions → Repository permissions → **Contents: Read and write** (nothing else). Pick an expiry and note the date: when it expires, frames stop arriving until you make a new one and paste it into the callback.
+2. **Add the callback.** Sigfox backend → *Device Type* → the tags' device type → *Callbacks* → *New* → *Custom callback*:
+   - Type: **DATA**, **UPLINK**. Channel: **URL**. Leave *Custom payload config* empty.
+   - Url pattern: `https://api.github.com/repos/MohamedZF/custos-dashboard/dispatches`
+   - Use HTTP Method: **POST**. Send SNI: ticked.
+   - Headers: `Authorization` = `Bearer <the token>`, `Accept` = `application/vnd.github+json`, `User-Agent` = `custos-sigfox-callback`
+   - Content type: `application/json`
+   - Body:
+     ```json
+     {"event_type":"sigfox","client_payload":{"device":"{device}","time":{time},"data":"{data}","seq":{seqNumber},"rssi":{rssi},"snr":{snr},"station":"{station}"}}
+     ```
+3. **Check it.** After the next frame, *Actions* shows a "Store Sigfox frame" run followed by "Update dashboard". In the backend, the device's *Messages* page shows the callback's result for each frame (GitHub answers 204 when it accepts one). A red callback usually means the token is wrong or has expired.
+
+**Good to know**
+
+- Frames are stored on the `frames` branch, encrypted with `SITE_PASSWORD` like everything else; 62 days are kept and the site shows 30. Changing `SITE_PASSWORD` makes the stored frames unreadable, so a password change starts the V12 history afresh.
+- Frames the backend received before the callback existed are not sent; only new frames arrive.
+- A frame repeated by the backend is stored once (same time and sequence number).
+- Each frame adds a small commit to the `frames` branch, which also keeps the scheduled job from pausing after 60 days.
+
 ## Battery
 
 Battery charts use the raw battery byte from each message payload (byte 10, 0–255), converted the same way Field Signal does: **2.5 V + raw × 1.1 / 255**, so raw 255 = 3.6 V and raw 0 = 2.5 V. This matched the export's 0.1 V battery column on every message checked (6,718 across four tags) and gives steps of about 0.004 V instead of 0.1 V.

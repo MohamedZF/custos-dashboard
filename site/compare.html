@@ -203,7 +203,8 @@
   }
   function setHome(p, bundle) {
     const fresh = !home;
-    home = p; lastIv = bundle.iv;
+    home = { ...p, tags: p.tags.filter(t => t.kind !== 'v2') };   // Custos V12 tags have their own page format
+    lastIv = bundle.iv;
     for (const k of Object.keys(cache)) delete cache[k];
     home.tags.forEach((t, i) => { t.color = PALETTE[i % PALETTE.length]; });
     sel.tags = sel.tags.filter(id => home.tags.some(t => t.id === id && t.messages));

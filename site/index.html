@@ -61,7 +61,7 @@
     <div class="hm-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading…</span></span><button type="button" class="lx-link-btn" data-lock-now>Lock</button></div>
   </header>
   <section class="hm-grid" id="tags" aria-label="Tags"></section>
-  <footer>Data from Field Signal, updated by a GitHub Actions job scheduled every 5 minutes. Times are SAST.</footer>
+  <footer>Data from Field Signal, updated by a GitHub Actions job scheduled every 5 minutes. Custos V12 tags send their frames straight from the Sigfox backend and update a few minutes after each frame. Times are SAST.</footer>
 </div>
 
 </div>
@@ -88,16 +88,17 @@
     if (!t.messages) return `<article class="hm-tag is-empty"><div><h2>${esc(t.name)}</h2><span class="hm-id">Sigfox ${esc(t.id)}</span></div>
       <span class="hm-state is-none"><i></i>No messages in the last ${esc(home.days)} days</span><span class="hm-open">No dashboard yet</span></article>`;
     const silentH = (Date.now() - Date.parse(t.last_message_utc)) / 3600e3;
-    const state = silentH > 2 ? `<span class="hm-state is-silent"><i></i>Silent, last message ${since(t.last_message_utc)}</span>` : `<span class="hm-state"><i></i>Reporting, last message ${since(t.last_message_utc)}</span>`;
-    return `<a class="hm-tag" href="tag.html?id=${encodeURIComponent(t.id)}">
+    const state = silentH > (t.kind === 'v2' ? 0.75 : 2) ? `<span class="hm-state is-silent"><i></i>Silent, last message ${since(t.last_message_utc)}</span>` : `<span class="hm-state"><i></i>Reporting, last message ${since(t.last_message_utc)}</span>`;
+    const v2 = t.kind === 'v2';
+    return `<a class="hm-tag" href="${v2 ? 'tag2' : 'tag'}.html?id=${encodeURIComponent(t.id)}">
       <div><h2>${esc(t.name)}</h2><span class="hm-id">Sigfox ${esc(t.id)}</span></div>
       ${state}
       <p class="hm-span">Past ${esc(home.days)} days</p>
       <dl class="hm-stats">
         <div><dt>Last message</dt><dd>${esc(t.last_message_sast)}</dd></div>
         <div><dt>Delivery</dt><dd>${esc(t.delivery_pct)}%</dd></div>
-        <div><dt>Battery</dt><dd>${esc(t.battery_v_latest)} V</dd></div>
-        <div><dt>GPS fixes</dt><dd>${fInt(t.gps_fixes)} of ${fInt(t.messages)}</dd></div>
+        <div><dt>${v2 ? 'Supply' : 'Battery'}</dt><dd>${t.battery_v_latest === '' ? '–' : esc(t.battery_v_latest) + ' V'}</dd></div>
+        <div><dt>GPS fixes</dt><dd>${fInt(t.gps_fixes)} of ${fInt(t.messages)}${v2 ? ' frames' : ''}</dd></div>
       </dl>
       <span class="hm-open">Open dashboard →</span></a>`;
   }

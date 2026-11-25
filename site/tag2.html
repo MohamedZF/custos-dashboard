@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Custos V12 tag</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link rel="stylesheet" href="common.css">
+<style>
+#dash-root .lx { display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+#dash-root .lx-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 var(--cds-gap-xs); }
+#dash-root .lx-take { color: var(--color-fg-muted); font-size: var(--cds-font-size-body); margin: 0; max-width: 60rem; line-height: 1.5; }
+#dash-root .lx-meta { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-xs); }
+#dash-root .lx-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .lx-kpi, #dash-root .lx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+#dash-root .lx-kpi { padding: var(--cds-pad-md); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
+#dash-root .lx-kpi .lx-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .lx-kpi .lx-big { font-family: var(--font-anthropic-serif); font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
+#dash-root .lx-kpi .lx-unit { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin-left: 2px; }
+#dash-root .lx-kpi .lx-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
+#dash-root .lx-bad { color: var(--color-bad); } #dash-root .lx-warn { color: var(--color-warn); } #dash-root .lx-ok { color: var(--color-ok); }
+#dash-root .lx-sec { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-sm) 0 0; }
+#dash-root .lx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
+#dash-root .lx-card { padding: var(--cds-pad-lg); min-width: 0; }
+#dash-root .lx-card h3 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+#dash-root .lx-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); line-height: 1.45; }
+#dash-root .lx-chart { position: relative; min-height: 200px; }
+#dash-root .lx-legend { display: flex; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-sm); flex-wrap: wrap; }
+#dash-root .lx-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+#dash-root .lx-tick { fill: var(--color-fg-muted); font-size: 11px; font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; display: none; z-index: 500; font-variant-numeric: tabular-nums; }
+#dash-root .lx-tip .lx-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+#dash-root .lx-empty { display: flex; align-items: center; justify-content: center; min-height: 160px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); text-align: center; padding: 0 12px; }
+#dash-root .lx-tbl-wrap { max-height: 30rem; overflow: auto; }
+#dash-root table.lx-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+#dash-root table.lx-tbl th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); position: sticky; top: 0; background: var(--color-panel); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); z-index: 1; }
+#dash-root table.lx-tbl td { padding: 6px var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+#dash-root table.lx-tbl .lx-num { text-align: right; white-space: nowrap; }
+#dash-root .lx-hex { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; color: var(--color-fg-muted); }
+#dash-root .lx-chip { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 4px; padding: 0 6px; white-space: nowrap; }
+#dash-root .ty-position { color: var(--s4); } #dash-root .ty-acc { color: var(--s1); } #dash-root .ty-health { color: var(--s3); } #dash-root .ty-start-up { color: var(--s6); } #dash-root .ty-other { color: var(--color-fg-muted); }
+#dash-root .lx-tests { display: flex; flex-wrap: wrap; gap: 6px; }
+#dash-root .lx-test { font-size: var(--cds-font-size-caption); border-radius: 4px; padding: 2px 8px; border: 1px solid var(--color-border-line); }
+#dash-root .lx-test.ok { color: var(--color-ok); } #dash-root .lx-test.bad { color: var(--color-bad); border-color: var(--color-bad); }
+#dash-root .lx-map2 { height: 380px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; background: var(--color-bg); }
+#dash-root .lx-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 10px 18px; margin: 0 0 var(--cds-gap-md); }
+#dash-root .lx-facts div { display: flex; flex-direction: column; gap: 2px; }
+#dash-root .lx-facts dt { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+#dash-root .lx-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+</style>
+<script src="lock.js"></script>
+<script src="custos-frames.js"></script>
+</head>
+<body>
+<div id="dash-root">
+
+<main id="lock" class="lx-lock">
+  <form id="lock-form" class="lx-lock-card" autocomplete="on">
+    <p class="lx-lock-eyebrow">Custos tags</p>
+    <h1>Tag dashboard</h1>
+    <p class="lx-lock-lead">This dashboard is password protected. Enter the password to see the tag.</p>
+    <input type="text" name="username" value="custos-dashboard" autocomplete="username" hidden>
+    <label for="lock-password">Password</label>
+    <input id="lock-password" name="password" type="password" autocomplete="current-password" required>
+    <label class="lx-lock-remember"><input id="lock-remember" type="checkbox"> Remember on this device</label>
+    <button id="lock-submit" type="submit">Unlock</button>
+    <p id="lock-error" class="lx-lock-error" role="alert" hidden></p>
+  </form>
+</main>
+
+<div class="lx" hidden>
+  <header class="lx-head">
+    <a class="lx-back" href="./">← All tags</a>
+    <h1 id="name">Custos tag</h1>
+    <p class="lx-take" id="take">Custos V12 tag. Every Sigfox frame reaches this page a few minutes after the backend receives it. Times are SAST.</p>
+    <div class="lx-meta lx-meta-row"><span class="lx-status"><i></i><span id="updated">Loading…</span></span><button type="button" class="lx-link-btn" data-lock-now>Lock</button></div>
+    <div class="lx-range" role="group" aria-label="Time range">
+      <button type="button" data-range="24h" aria-pressed="true">24 hours</button><button type="button" data-range="7d" aria-pressed="false">7 days</button><button type="button" data-range="30d" aria-pressed="false">30 days</button>
+    </div>
+  </header>
+
+  <p class="lx-card lx-range-empty" id="range-empty" hidden>No frames in this period.</p>
+
+  <section class="lx-kpis" id="kpis" aria-label="Latest state"></section>
+
+  <h2 class="lx-sec">Power and health</h2>
+  <div class="lx-grid">
+    <div class="lx-card"><h3>Supply voltage</h3><p class="lx-note">The supercap as the tag's PMIC reads it (about 30–60 mV under the cap). Health frames give it to 10 mV with the hour's lowest; position and start-up frames to 100 mV.</p>
+      <div class="lx-legend"><span><i class="lx-sw" style="background:var(--s1)"></i>Health frame</span><span><i class="lx-sw" style="background:var(--s2)"></i>Lowest that hour</span><span><i class="lx-sw" style="background:var(--s4)"></i>Position / start-up frame</span></div>
+      <div class="lx-chart" id="ch-supply"></div></div>
+    <div class="lx-card"><h3>Temperature</h3><p class="lx-note">The nRF chip's temperature from each health frame, in whole degrees (0 means 0 °C or colder).</p>
+      <div class="lx-chart" id="ch-temp"></div></div>
+  </div>
+  <div class="lx-card"><h3>Self-tests and events</h3><p class="lx-note">Self-tests from the newest health or position frame. Events are what the tag logged in the hour before each health frame.</p>
+    <div class="lx-tests" id="tests"></div>
+    <div class="lx-tbl-wrap" style="margin-top:14px;max-height:16rem"><table class="lx-tbl" id="events"></table></div></div>
+
+  <h2 class="lx-sec">Activity</h2>
+  <div class="lx-grid">
+    <div class="lx-card"><h3>Activity score per 15-minute cycle</h3><p class="lx-note">Median of each cycle's accelerometer readings, 0 (still) to 7, from the activity frames. Each frame covers the hour's four cycles.</p>
+      <div class="lx-chart" id="ch-act"></div></div>
+    <div class="lx-card"><h3>Posture and mortality</h3><p class="lx-note">Pitch range per cycle (head up is positive), orientation changes per hour, and the mortality check's latest state.</p>
+      <dl class="lx-facts" id="mort"></dl>
+      <div class="lx-chart" id="ch-pitch"></div></div>
+  </div>
+
+  <h2 class="lx-sec">GPS</h2>
+  <div class="lx-grid">
+    <div class="lx-card"><h3>Positions</h3><p class="lx-note" id="map-note">GPS fixes from position and start-up frames. The newest is the large marker.</p>
+      <div class="lx-map2" id="map"></div></div>
+    <div class="lx-card"><h3>GPS results</h3><p class="lx-note">What each position frame's search found. Indoors the tag hears no satellites and backs off to one search an hour.</p>
+      <dl class="lx-facts" id="gps-facts"></dl>
+      <div class="lx-tbl-wrap" style="max-height:14rem"><table class="lx-tbl" id="fixes"></table></div></div>
+  </div>
+
+  <h2 class="lx-sec">Sigfox link</h2>
+  <div class="lx-grid">
+    <div class="lx-card"><h3>Signal at the base station</h3><p class="lx-note">RSSI of each frame as the backend reported it. Below about −135 dBm frames start to go missing.</p>
+      <div class="lx-chart" id="ch-rssi"></div></div>
+    <div class="lx-card"><h3>Delivery</h3><p class="lx-note">From Sigfox sequence numbers: every frame the tag sends gets the next number, so a gap is a frame that never arrived.</p>
+      <dl class="lx-facts" id="link-facts"></dl>
+      <div class="lx-tbl-wrap" style="max-height:12rem"><table class="lx-tbl" id="gaps"></table></div></div>
+  </div>
+
+  <h2 class="lx-sec">Frames</h2>
+  <div class="lx-card"><p class="lx-note" style="margin-top:0">Every frame in this period, newest first, decoded.</p>
+    <div class="lx-tbl-wrap"><table class="lx-tbl" id="log"></table></div></div>
+
+  <footer>Frames from the Sigfox backend by callback, stored encrypted and published by GitHub Actions. Decoder: Custos V12 frames (agreed 16 Nov 2026). Map © OpenStreetMap contributors.</footer>
+</div>
+</div>
+
+<script>
+(() => {
+  const TAG = (new URLSearchParams(location.search).get('id') || '').toUpperCase().replace(/[^0-9A-F]/g, '');
+  const REFRESH_MS = 60 * 1000;
+  const RANGES = { '24h': 24, '7d': 7 * 24, '30d': 30 * 24 };
+  const LEVELS = ['full', 'no_sd', 'reduced', 'survival', 'hold'];
+  const TYPE = { position: 'Position', acc: 'Activity', health: 'Health', 'start-up': 'Start-up' };
+  const FIXTXT = { FIX: 'Fix', FIX_POOR: 'Poor fix', NO_FIX: 'No fix (timed out)', NO_SKY: 'No satellites heard' };
+  const EV = {1:'No supply reading from the PMIC',2:'Started after a power loss or brown-out',3:'Step skipped, supply below its limit',4:'Down to the last power level',5:'Power level changed',6:'Charger found on / unreadable',8:'Nothing from the GPS in a search',9:'No satellite heard, search cut short',10:'GPS search timed out',11:'Poor fix taken',12:'Clock more than 2 s out at a resync',13:'GPS settings not readable / not taken',14:'GPS back-off: cycles skipped after misses',15:'Clock set from the GPS',16:'IMU does not answer',17:'IMU FIFO reads failed',18:'Accelerometer reading too short',19:'Implausible accelerometer reading',20:'Accelerometer readings dropped, queue full',21:'IMU restarted after failing',22:'Mortality: no movement',24:'SPI flash write failed',25:'Damaged flash records skipped',26:'Flash log wrapped before the SD write',27:'RRAM store failed',32:'LSM does not answer',33:'SD card not found',34:'SD write failed',35:'SD card nearly full',36:'LSM was busy',37:'Daily SD write finished',38:'LSM reset through NRST',39:'SD read-back mismatch',40:'Sigfox send error',41:'No reply from the LSM after a frame',42:'Frame skipped, supply too low',43:'Downlink carried out',44:'Downlink not carried out',45:'Downlink asked for, none came',46:'Recovery mode',48:'Bluetooth visit ended (idle)',49:'Bluetooth connection dropped',50:'CONFIG.TXT upload turned down',51:'Bluetooth visit started',52:'New CONFIG.TXT in use',56:'Running on the default settings',57:'Start-up done without the clock set',58:'Restarted by the watchdog',59:'Unexpected reset',60:'Start-up'};
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = id => document.getElementById(id);
+  const sast = t => new Date(t * 1000 + 2 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
+  const ago = t => { const m = (Date.now() / 1000 - t) / 60; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} min ago` : m < 48 * 60 ? `${Math.floor(m / 60)} h ${Math.round(m % 60)} min ago` : `${Math.floor(m / 1440)} days ago`; };
+  const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const vfmt = mv => (mv / 1000).toFixed(mv % 100 ? 2 : 1);
+
+  let all = [], meta = null, range = '24h', lastIv = null, lastBundle = null, map = null, mapLayer = null, ui = null;
+  try { const r = localStorage.getItem('custos-tag2-range'); if (RANGES[r]) range = r; } catch (e) {}
+
+  function prepare(frames) {
+    return frames.map(f => {
+      let d = null;
+      try { if (f.data && f.data.length === 24) d = CustosFrames.decode(CustosFrames.hexToBytes(f.data)); } catch (e) {}
+      return { ...f, d, type: d ? d.type : 'other' };
+    }).sort((a, b) => a.time - b.time);
+  }
+  const inRange = () => { const from = Date.now() / 1000 - RANGES[range] * 3600; return all.filter(f => f.time >= from); };
+
+  // ---------- small charts (d3) ----------
+  const tip = box => { let t = box.querySelector('.lx-tip'); if (!t) { t = document.createElement('div'); t.className = 'lx-tip'; box.appendChild(t); } return t; };
+  function empty(box, text) { box.innerHTML = `<div class="lx-empty">${esc(text)}</div>`; }
+  function timeChart(box, series, opt) {
+    const pts = series.flatMap(s => s.points);
+    if (!pts.length) return empty(box, opt.empty || 'Nothing in this period.');
+    box.innerHTML = '';
+    const W = Math.max(280, box.clientWidth || 400), H = opt.height || 200, m = { l: 46, r: 12, t: 8, b: 24 };
+    const from = Date.now() / 1000 - RANGES[range] * 3600, to = Date.now() / 1000;
+    const x = d3.scaleTime().domain([new Date(from * 1000), new Date(to * 1000)]).range([m.l, W - m.r]);
+    let [lo, hi] = opt.domain || d3.extent(pts, p => p.v);
+    if (!opt.domain) { const pad = Math.max((hi - lo) * 0.12, opt.minPad || 1); lo -= pad; hi += pad; }
+    const y = d3.scaleLinear().domain([lo, hi]).range([H - m.b, m.t]); if (!opt.domain) y.nice(4);
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', opt.label || '');
+    svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('class', 'lx-tick').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').text(opt.yfmt || (d => d));
+    const xt = x.ticks(Math.max(2, Math.floor(W / 110)));
+    const xf = RANGES[range] <= 24 ? d3.utcFormat('%H:%M') : d3.utcFormat('%d %b');
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'lx-tick').attr('x', d => x(d)).attr('y', H - 6).attr('text-anchor', 'middle').text(d => xf(new Date(+d + 2 * 3600e3)));
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+    series.forEach(s => {
+      const P = s.points.map(p => ({ ...p, X: x(new Date(p.t * 1000)), Y: y(p.v) }));
+      if (s.bars) {
+        svg.append('g').selectAll('rect').data(P).join('rect').attr('x', p => p.X - (s.bw || 2) / 2).attr('width', s.bw || 2).attr('y', p => Math.min(p.Y, y(0))).attr('height', p => Math.max(1, Math.abs(y(0) - p.Y))).attr('rx', 1).attr('fill', s.color);
+      } else {
+        if (s.line && P.length > 1) svg.append('path').attr('d', d3.line().x(p => p.X).y(p => p.Y)(P)).attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-dasharray', s.dash || null);
+        svg.append('g').selectAll('circle').data(P).join('circle').attr('cx', p => p.X).attr('cy', p => p.Y).attr('r', s.r || 3).attr('fill', s.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 1);
+      }
+    });
+    const all = series.flatMap(s => s.points.map(p => ({ ...p, s, X: x(new Date(p.t * 1000)) })));
+    const t = tip(box);
+    svg.append('rect').attr('x', m.l).attr('y', 0).attr('width', W - m.l - m.r).attr('height', H - m.b).attr('fill', 'transparent')
+      .on('pointermove', ev => {
+        const [px] = d3.pointer(ev); const sx = px * (box.clientWidth / W);
+        let best = null; all.forEach(p => { const dd = Math.abs(p.X - px); if (!best || dd < best.dd) best = { ...p, dd }; });
+        if (!best || best.dd > 40) { t.style.display = 'none'; return; }
+        const same = all.filter(p => p.t === best.t);
+        t.innerHTML = `<div class="lx-tip-h">${esc(sast(best.t))}</div>` + same.map(p => `<div>${esc(p.s.name)}: <b>${esc(opt.tipfmt ? opt.tipfmt(p.v, p) : p.v)}</b></div>`).join('');
+        t.style.display = 'block';
+        const bx = best.X * (box.clientWidth / W);
+        t.style.left = Math.min(Math.max(0, bx + 10), box.clientWidth - t.offsetWidth) + 'px'; t.style.top = '6px';
+      })
+      .on('pointerleave', () => { t.style.display = 'none'; });
+  }
+
+  // ---------- sections ----------
+  function kpi(label, big, unit, sub, cls) {
+    return `<div class="lx-kpi"><span class="lx-label">${esc(label)}</span><span class="lx-big ${cls || ''}">${big}${unit ? `<span class="lx-unit">${esc(unit)}</span>` : ''}</span><span class="lx-sub">${sub || ''}</span></div>`;
+  }
+  function delivery(F) {
+    if (!F.length) return { got: 0, sent: 0, gaps: [] };
+    let sent = 1; const gaps = [];
+    for (let i = 1; i < F.length; i++) {
+      const g = (F[i].seq - F[i - 1].seq + 4096) % 4096;
+      if (g > 1) gaps.push({ from: F[i - 1], to: F[i], missing: g - 1 });
+      sent += g || 0;
+    }
+    return { got: F.length, sent, gaps };
+  }
+  function renderKpis(F) {
+    const last = all[all.length - 1];
+    const lastOf = (...types) => [...all].reverse().find(f => f.d && types.includes(f.type));
+    const h = lastOf('health'), p = lastOf('position', 'start-up'), tstF = lastOf('health', 'position');
+    const fix = [...all].reverse().find(f => f.d && (f.type === 'position' || f.type === 'start-up') && f.d.position && (f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR'));
+    const mortF = lastOf('health', 'position');
+    const dl = delivery(F);
+    const rssi = median(F.map(f => f.rssi).filter(v => v !== null)), snr = median(F.map(f => f.snr).filter(v => v !== null));
+    const stations = new Set(F.map(f => f.station).filter(Boolean)).size;
+    const silent = last ? (Date.now() / 1000 - last.time) / 60 : 1e9;
+    const k = [];
+    k.push(kpi('Last frame', last ? esc(ago(last.time)) : '–', '', last ? `${esc(sast(last.time))} · ${esc(TYPE[last.type] || 'unknown')} · seq ${esc(last.seq)}` : 'No frames yet', silent > 45 ? 'lx-warn' : ''));
+    if (h) k.push(kpi('Supply', esc(vfmt(h.d.supply_mv)), 'V', `lowest this hour ${esc(vfmt(h.d.supply_min_mv))} V · level ${esc(h.d.level)} (${esc(LEVELS[h.d.level] || '?')})`));
+    else if (p) k.push(kpi('Supply', esc(vfmt(p.d.battery_mv)), 'V', 'about, from a position frame (100 mV steps)'));
+    else k.push(kpi('Supply', '–', '', 'No health frame yet'));
+    k.push(kpi('Temperature', h ? esc(h.d.temp_c) : '–', h ? '°C' : '', h ? `chip, at ${esc(sast(h.time))}` : 'No health frame yet'));
+    k.push(kpi('GPS', fix ? esc(ago(fix.time)) : 'No fix yet', '', fix ? `last fix ${esc(fix.d.position[0].toFixed(5))}, ${esc(fix.d.position[1].toFixed(5))}` : h ? `${esc(h.d.gps_misses)} searches missed in a row` : '', fix ? '' : 'lx-warn'));
+    const mort = mortF ? mortF.d.mortality : null;
+    k.push(kpi('Mortality check', mort ? esc(mort[0].toUpperCase() + mort.slice(1)) : '–', '', mortF ? `from the ${esc(TYPE[mortF.type].toLowerCase())} frame at ${esc(sast(mortF.time).slice(11))}` : '', mort === 'confirmed' ? 'lx-bad' : mort === 'suspected' ? 'lx-warn' : ''));
+    if (tstF) { const bad = Object.entries(tstF.d.tests).filter(([, v]) => !v).map(([n]) => n); k.push(kpi('Self-tests', bad.length ? `${6 - bad.length} of 6` : 'All 6', '', bad.length ? `failed: ${esc(bad.join(', '))}` : 'passed', bad.length ? 'lx-bad' : 'lx-ok')); }
+    k.push(kpi('Delivery', dl.sent ? esc(Math.round(dl.got / dl.sent * 1000) / 10) : '–', dl.sent ? '%' : '', `${esc(dl.got)} of ${esc(dl.sent)} frames in this period`, dl.sent && dl.got / dl.sent < 0.9 ? 'lx-warn' : ''));
+    k.push(kpi('Signal', rssi !== null ? esc(Math.round(rssi)) : '–', rssi !== null ? 'dBm' : '', rssi !== null ? `median · SNR ${esc(snr !== null ? snr.toFixed(1) : '–')} dB · ${esc(stations)} base station${stations === 1 ? '' : 's'}` : ''));
+    $('kpis').innerHTML = k.join('');
+  }
+  function renderHealth(F) {
+    const H = F.filter(f => f.type === 'health'), P = F.filter(f => f.d && (f.type === 'position' || f.type === 'start-up'));
+    timeChart($('ch-supply'), [
+      { name: 'Lowest that hour', color: 'var(--s2)', r: 2.5, points: H.map(f => ({ t: f.time, v: f.d.supply_min_mv })) },
+      { name: 'Position / start-up', color: 'var(--s4)', r: 2.5, points: P.map(f => ({ t: f.time, v: f.d.battery_mv })) },
+      { name: 'Health', color: 'var(--s1)', line: true, points: H.map(f => ({ t: f.time, v: f.d.supply_mv })) },
+    ], { empty: 'No health or position frames in this period.', minPad: 20, yfmt: v => (v / 1000).toFixed(2), tipfmt: v => vfmt(v) + ' V', label: 'Supply voltage over time' });
+    timeChart($('ch-temp'), [{ name: 'Chip temperature', color: 'var(--s5)', line: true, points: H.map(f => ({ t: f.time, v: f.d.temp_c })) }],
+      { empty: 'No health frames in this period.', minPad: 2, tipfmt: v => v + ' °C', label: 'Temperature over time' });
+    const tstF = [...all].reverse().find(f => f.d && (f.type === 'health' || f.type === 'position'));
+    $('tests').innerHTML = tstF ? Object.entries(tstF.d.tests).map(([n, ok]) => `<span class="lx-test ${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'} ${esc(n)}</span>`).join('') + `<span class="lx-sub" style="align-self:center;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)">from ${esc(sast(tstF.time))}</span>` : '<span class="lx-empty" style="min-height:0">No health or position frame yet.</span>';
+    const ev = [...H].reverse();
+    $('events').innerHTML = ev.length ? '<thead><tr><th>Health frame</th><th class="lx-num">Events</th><th>Last event</th><th class="lx-num">GPS misses</th><th class="lx-num">Restarts</th><th>SD</th></tr></thead><tbody>' + ev.map(f => `<tr><td>${esc(sast(f.time))}</td><td class="lx-num">${esc(f.d.errors === 15 ? '15+' : f.d.errors)}</td><td>${f.d.errors ? `${esc(f.d.last_error)} · ${esc(EV[f.d.last_error] || 'unknown code')}` : '–'}</td><td class="lx-num">${esc(f.d.gps_misses)}</td><td class="lx-num">${esc(f.d.restarts)}</td><td>${esc(f.d.last_sd)}${f.d.sd_free_pct !== null ? `, ${esc(f.d.sd_free_pct)}% free` : ''}</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td>No health frames in this period.</td></tr></tbody>';
+  }
+  function renderActivity(F) {
+    const A = F.filter(f => f.type === 'acc');
+    const cyc = A.flatMap(f => f.d.act_median.map((a, i) => a === null ? null : { t: f.time - (3 - i) * 900, v: a, pmin: f.d.pitch_min_deg[i], pmax: f.d.pitch_max_deg[i], roll: f.d.roll_deg[i] }).filter(Boolean));
+    const bw = Math.max(2, Math.min(8, 600 / Math.max(1, RANGES[range] * 4)));
+    timeChart($('ch-act'), [{ name: 'Activity score', color: 'var(--s1)', bars: true, bw, points: cyc }], { empty: 'No activity frames in this period.', domain: [0, 7], tipfmt: v => `${v} of 7`, label: 'Activity score per cycle' });
+    timeChart($('ch-pitch'), [
+      { name: 'Pitch max', color: 'var(--s4)', r: 2.5, points: cyc.map(c => ({ t: c.t, v: c.pmax })) },
+      { name: 'Pitch min', color: 'var(--s6)', r: 2.5, points: cyc.map(c => ({ t: c.t, v: c.pmin })) },
+    ], { empty: 'No activity frames in this period.', domain: [-90, 90], tipfmt: v => (v > 0 ? '+' : '') + v + '°', height: 170, label: 'Pitch range per cycle' });
+    const mF = [...all].reverse().find(f => f.d && (f.type === 'health' || f.type === 'position'));
+    const turns = A.reduce((s, f) => s + f.d.turns, 0);
+    const hp = [...all].reverse().find(f => f.type === 'position');
+    $('mort').innerHTML = `<div><dt>Mortality check</dt><dd>${mF ? esc(mF.d.mortality) : '–'}</dd></div>
+      <div><dt>Still for at least</dt><dd>${hp ? esc(hp.d.still_min_at_least >= 60 ? (hp.d.still_min_at_least / 60) + ' h' : hp.d.still_min_at_least + ' min') : '–'}</dd></div>
+      <div><dt>Orientation changes</dt><dd>${esc(turns)} <span style="color:var(--color-fg-muted)">in ${esc(A.length)} h reported</span></dd></div>`;
+  }
+  function renderGps(F) {
+    const P = F.filter(f => f.d && f.type === 'position');
+    const fixes = F.filter(f => f.d && (f.type === 'position' || f.type === 'start-up') && f.d.position && (f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR'));
+    const count = k => P.filter(f => f.d.fix === k).length;
+    const ttf = median(fixes.map(f => f.d.ttf_s));
+    $('gps-facts').innerHTML = `<div><dt>Position frames</dt><dd>${esc(P.length)}</dd></div><div><dt>Fixes</dt><dd>${esc(count('FIX') + count('FIX_POOR'))}${count('FIX_POOR') ? ` (${esc(count('FIX_POOR'))} poor)` : ''}</dd></div>
+      <div><dt>No satellites / timed out</dt><dd>${esc(count('NO_SKY'))} / ${esc(count('NO_FIX'))}</dd></div><div><dt>Median time to fix</dt><dd>${ttf === null ? '–' : esc(ttf) + ' s'}</dd></div>`;
+    const rows = [...fixes].reverse().slice(0, 50);
+    $('fixes').innerHTML = rows.length ? '<thead><tr><th>Frame</th><th>Position</th><th class="lx-num">HDOP</th><th class="lx-num">TTF</th></tr></thead><tbody>' + rows.map(f => `<tr><td>${esc(sast(f.time))}</td><td>${esc(f.d.position[0].toFixed(5))}, ${esc(f.d.position[1].toFixed(5))}</td><td class="lx-num">${f.type === 'position' ? esc(f.d.hdop) : '–'}</td><td class="lx-num">${esc(f.d.ttf_s)} s</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td>No GPS fixes in this period.</td></tr></tbody>';
+    drawMap(fixes);
+  }
+  function drawMap(fixes) {
+    const box = $('map');
+    if (typeof L === 'undefined') { empty(box, 'The map library did not load.'); return; }
+    if (!fixes.length) {
+      if (map) { map.remove(); map = null; }
+      empty(box, 'No GPS fix in this period. Indoors the tag hears no satellites.'); return;
+    }
+    if (!map) { box.innerHTML = ''; map = L.map(box, { scrollWheelZoom: false }); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map); }
+    if (mapLayer) mapLayer.remove();
+    mapLayer = L.layerGroup().addTo(map);
+    const ll = fixes.map(f => [f.d.position[0], f.d.position[1]]);
+    if (ll.length > 1) L.polyline(ll, { color: getComputedStyle(document.documentElement).getPropertyValue('--s1').trim() || '#2860c8', weight: 2, opacity: .6 }).addTo(mapLayer);
+    fixes.forEach((f, i) => {
+      const lastOne = i === fixes.length - 1;
+      L.circleMarker(ll[i], { radius: lastOne ? 9 : 5, weight: 2, color: '#fff', fillColor: lastOne ? '#c2410c' : '#2860c8', fillOpacity: .95 })
+        .bindTooltip(`${sast(f.time)} SAST<br>${ll[i][0].toFixed(5)}, ${ll[i][1].toFixed(5)}${f.type === 'position' ? `<br>HDOP ${f.d.hdop}, ${f.d.ttf_s} s` : '<br>start-up fix'}`).addTo(mapLayer);
+    });
+    if (ll.length === 1) map.setView(ll[0], 16); else map.fitBounds(ll, { padding: [24, 24], maxZoom: 17 });
+    setTimeout(() => map && map.invalidateSize(), 50);
+  }
+  function renderLink(F) {
+    const R = F.filter(f => f.rssi !== null);
+    timeChart($('ch-rssi'), [{ name: 'RSSI', color: 'var(--s6)', points: R.map(f => ({ t: f.time, v: f.rssi })) }], { empty: 'No frames in this period.', minPad: 3, tipfmt: (v, p) => `${Math.round(v)} dBm`, label: 'RSSI per frame' });
+    const dl = delivery(F);
+    const stations = new Set(F.map(f => f.station).filter(Boolean));
+    $('link-facts').innerHTML = `<div><dt>Frames received</dt><dd>${esc(dl.got)}</dd></div><div><dt>Frames sent</dt><dd>${esc(dl.sent)}</dd></div><div><dt>Missing</dt><dd>${esc(dl.sent - dl.got)}</dd></div><div><dt>Base stations</dt><dd>${esc(stations.size)}</dd></div>`;
+    const g = [...dl.gaps].reverse().slice(0, 30);
+    $('gaps').innerHTML = g.length ? '<thead><tr><th>Missing between</th><th class="lx-num">Frames</th></tr></thead><tbody>' + g.map(x => `<tr><td>${esc(sast(x.from.time))} → ${esc(sast(x.to.time).slice(11))}</td><td class="lx-num">${esc(x.missing)}</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td>No frames missing in this period.</td></tr></tbody>';
+  }
+  function summary(f) {
+    const d = f.d; if (!d) return 'Not a 12-byte Custos frame';
+    if (d.type === 'position') return `${FIXTXT[d.fix]}${d.position ? ` · ${d.position[0].toFixed(5)}, ${d.position[1].toFixed(5)}` : ' · no position yet'}${d.fix === 'FIX' || d.fix === 'FIX_POOR' ? ` · HDOP ${d.hdop}, ${d.ttf_s} s` : ''} · supply ≈${vfmt(d.battery_mv)} V · activity ${d.act_median}/${d.act_max} · ${d.mortality}`;
+    if (d.type === 'acc') return `activity ${d.act_median.map(a => a === null ? '–' : a).join(' ')} · pitch ${d.pitch_min_deg.map((a, i) => a === null ? '–' : `${a}…${d.pitch_max_deg[i]}°`).join(' ')} · ${d.turns} turns`;
+    if (d.type === 'health') return `supply ${vfmt(d.supply_mv)} V (low ${vfmt(d.supply_min_mv)}) · level ${d.level} · ${d.temp_c} °C · ${d.errors} event${d.errors === 1 ? '' : 's'}${d.errors ? ` (last ${d.last_error}: ${EV[d.last_error] || 'unknown'})` : ''} · GPS misses ${d.gps_misses} · ${d.mortality}`;
+    return `${d.reason} · ${FIXTXT[d.fix]}${d.position ? ` · ${d.position[0].toFixed(5)}, ${d.position[1].toFixed(5)}` : ''} · supply ≈${vfmt(d.battery_mv)} V · firmware ${d.firmware}, settings ${d.config}`;
+  }
+  function renderLog(F) {
+    const rows = [...F].reverse().slice(0, 400);
+    $('log').innerHTML = '<thead><tr><th>Time</th><th class="lx-num">Seq</th><th>Type</th><th>Decoded</th><th class="lx-num">RSSI</th><th>Frame</th></tr></thead><tbody>' +
+      rows.map(f => `<tr><td style="white-space:nowrap">${esc(sast(f.time))}</td><td class="lx-num">${esc(f.seq)}</td><td><span class="lx-chip ty-${esc(f.type)}">${esc(TYPE[f.type] || 'Other')}</span></td><td>${esc(summary(f))}</td><td class="lx-num">${f.rssi === null ? '–' : esc(Math.round(f.rssi))}</td><td class="lx-hex">${esc(f.data || '–')}</td></tr>`).join('') + '</tbody>';
+  }
+  function status() {
+    if (!meta) return;
+    const el = $('updated'), last = all[all.length - 1];
+    const silentMin = last ? (Date.now() / 1000 - last.time) / 60 : 1e9;
+    el.parentElement.classList.toggle('is-stale', silentMin > 45);
+    el.textContent = last ? `Last frame ${ago(last.time)}${silentMin > 45 ? ' (expected every 15 min)' : ''} · page checks every minute` : 'No frames yet';
+  }
+  function render() {
+    const F = inRange();
+    document.querySelectorAll('[data-range]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.range === range)));
+    $('range-empty').hidden = F.length > 0;
+    renderKpis(F); renderHealth(F); renderActivity(F); renderGps(F); renderLink(F); renderLog(F); status();
+  }
+  function apply(payload, bundle) {
+    meta = payload.meta; lastIv = bundle.iv; all = prepare(payload.frames || []);
+    $('name').textContent = meta.name; document.title = meta.name;
+    $('take').textContent = `Custos V12 tag, Sigfox ${meta.device}. Every frame reaches this page a few minutes after the Sigfox backend receives it. Times are SAST.`;
+    ui.hide(); render();
+  }
+  async function load() {
+    try { lastBundle = await CustosLock.fetchBundle(`data/tag-${TAG}.enc.json`); }
+    catch (e) { if (!meta) ui.show(e.status === 404 ? 'This tag has no frames yet, or the link is wrong.' : 'The tag data could not be loaded. Try again in a few minutes.'); return; }
+    if (lastBundle.iv === lastIv) { status(); return; }
+    const payload = await CustosLock.open(lastBundle);
+    if (!payload) { ui.show(meta ? 'The password has changed. Enter the current password.' : null); return; }
+    apply(payload, lastBundle);
+  }
+  document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => {
+    range = b.dataset.range; try { localStorage.setItem('custos-tag2-range', range); } catch (e) {}
+    if (meta) render();
+  }));
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (meta) render(); }, 200); });
+  ui = CustosLock.mount({ content: document.querySelector('#dash-root .lx'), getBundle: async () => { if (!lastBundle) await load(); return lastBundle; }, onOpen: apply });
+  if (!TAG) { ui.show('No tag chosen. Open this page from the list of tags.'); return; }
+  setInterval(load, REFRESH_MS);
+  setInterval(status, 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+  load();
+})();
+</script>
+</body>
+</html>

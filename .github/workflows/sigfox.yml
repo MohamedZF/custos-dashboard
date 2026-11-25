@@ -1,0 +1,59 @@
+name: Store Sigfox frame
+
+# The Sigfox backend's callback POSTs every uplink of the device type to
+#   https://api.github.com/repos/<owner>/<repo>/dispatches
+# with event_type "sigfox" (see README, "Custos V12 tags"). This stores the frame, encrypted,
+# on the frames branch, then starts "Update dashboard" so the site shows it within a few minutes.
+
+on:
+  repository_dispatch:
+    types: [sigfox]
+
+permissions:
+  contents: write   # push to the frames branch
+  actions: write    # start the dashboard update
+
+concurrency:
+  group: sigfox-frames   # one frame at a time, so none overwrites another
+  cancel-in-progress: false
+
+jobs:
+  store:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          ref: frames
+          path: _frames
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Store the frame
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          FRAMES_DIR: _frames/frames
+        run: node scripts/store-frame.mjs
+
+      - name: Save it to the frames branch
+        working-directory: _frames
+        env:
+          SEQ: ${{ github.event.client_payload.seq }}
+        run: |
+          git config user.name "custos-sigfox-callback"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A frames
+          if git diff --cached --quiet; then echo "Nothing new to save"; exit 0; fi
+          git commit -q -m "Sigfox frame (seq ${SEQ//[^0-9]/})"
+          for i in 1 2 3; do git push -q origin HEAD:frames && exit 0; git pull -q --rebase origin frames; done
+          exit 1
+
+      - name: Update the dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run update.yml --ref main --repo "$GITHUB_REPOSITORY"
