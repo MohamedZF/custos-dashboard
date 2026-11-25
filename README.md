@@ -73,11 +73,11 @@ A frame usually shows on the site 2 to 4 minutes after the backend receives it.
    - Type: **DATA**, **UPLINK**. Channel: **URL**. Leave *Custom payload config* empty.
    - Url pattern: `https://api.github.com/repos/MohamedZF/custos-dashboard/dispatches`
    - Use HTTP Method: **POST**. Send SNI: ticked.
-   - Headers: `Authorization` = `Bearer <the token>`, `Accept` = `application/vnd.github+json`, `User-Agent` = `custos-sigfox-callback`
+   - Headers: only `Authorization` = `Bearer <the token>`. Sigfox refuses `Accept` and `User-Agent` (they turn red and the form won't save); GitHub works without them.
    - Content type: `application/json`
-   - Body:
+   - Body (values in quotes so the editor sees valid JSON; `{snr}` is not available on this callback type and makes the form invalid):
      ```json
-     {"event_type":"sigfox","client_payload":{"device":"{device}","time":{time},"data":"{data}","seq":{seqNumber},"rssi":{rssi},"snr":{snr},"station":"{station}"}}
+     {"event_type":"sigfox","client_payload":{"device":"{device}","time":"{time}","data":"{data}","seq":"{seqNumber}","rssi":"{rssi}","station":"{station}"}}
      ```
 3. **Check it.** After the next frame, *Actions* shows a "Store Sigfox frame" run followed by "Update dashboard". In the backend, the device's *Messages* page shows the callback's result for each frame (GitHub answers 204 when it accepts one). A red callback usually means the token is wrong or has expired.
 
