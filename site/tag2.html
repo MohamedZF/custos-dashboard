@@ -24,6 +24,13 @@
 #dash-root .lx-kpi .lx-big { font-family: var(--font-anthropic-serif); font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
 #dash-root .lx-kpi .lx-unit { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin-left: 2px; }
 #dash-root .lx-kpi .lx-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
+#dash-root .lx-kpi { position: relative; --st: transparent; border-top: 3px solid var(--st); background: color-mix(in srgb, var(--st) 5%, var(--color-panel)); }
+#dash-root .lx-kpi.st-ok { --st: var(--color-ok); } #dash-root .lx-kpi.st-warn { --st: var(--color-warn); } #dash-root .lx-kpi.st-bad { --st: var(--color-bad); }
+#dash-root .lx-kpi .lx-label { padding-right: 24px; }
+#dash-root .lx-face { position: absolute; top: 10px; right: 10px; color: var(--st); line-height: 0; cursor: help; }
+#dash-root .lx-kpi.st-bad .lx-face { animation: lx-breathe 4s ease-in-out infinite; }
+@keyframes lx-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { #dash-root .lx-kpi.st-bad .lx-face { animation: none; } }
 #dash-root .lx-bad { color: var(--color-bad); } #dash-root .lx-warn { color: var(--color-warn); } #dash-root .lx-ok { color: var(--color-ok); }
 #dash-root .lx-sec { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-sm) 0 0; }
 #dash-root .lx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
@@ -316,8 +323,13 @@
   }
 
   // ---------- sections ----------
-  function kpi(label, big, unit, sub, cls) {
-    return `<div class="lx-kpi"><span class="lx-label">${esc(label)}</span><span class="lx-big ${cls || ''}">${big}${unit ? `<span class="lx-unit">${esc(unit)}</span>` : ''}</span><span class="lx-sub">${sub || ''}</span></div>`;
+  // A status face for the top tiles: ok (happy), warn (so-so), bad (sad); '' = no judgement.
+  const FACE_MOUTH = { ok: 'M6.5 11.5 Q10 14.5 13.5 11.5', warn: 'M6.5 12.5 H13.5', bad: 'M6.5 13.5 Q10 10.5 13.5 13.5' };
+  const FACE_WORD = { ok: 'Good', warn: 'Keep an eye on it', bad: 'Needs attention' };
+  const face = (st, why) => st ? `<span class="lx-face" role="img" aria-label="${esc(FACE_WORD[st])}" title="${esc(FACE_WORD[st] + (why ? ': ' + why : ''))}"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.2" cy="8" r="1.1" fill="currentColor"/><circle cx="12.8" cy="8" r="1.1" fill="currentColor"/><path d="${FACE_MOUTH[st]}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>` : '';
+  function kpi(label, big, unit, sub, st, why) {
+    const cls = st === 'bad' ? 'lx-bad' : st === 'warn' ? 'lx-warn' : '';
+    return `<div class="lx-kpi${st ? ' st-' + st : ''}">${face(st, why)}<span class="lx-label">${esc(label)}</span><span class="lx-big ${cls}">${big}${unit ? `<span class="lx-unit">${esc(unit)}</span>` : ''}</span><span class="lx-sub">${sub || ''}</span></div>`;
   }
   function delivery(F) {
     if (!F.length) return { got: 0, sent: 0, gaps: [] };
@@ -340,24 +352,42 @@
     const stations = new Set(F.map(f => f.station).filter(Boolean)).size;
     const silent = last ? (Date.now() / 1000 - last.time) / 60 : 1e9;
     const k = [];
-    k.push(kpi('Last frame', last ? esc(ago(last.time)) : '–', '', last ? `${esc(sast(last.time))} · ${esc(TYPE[last.type] || 'unknown')} · seq ${esc(last.seq)}` : 'No frames yet', silent > 45 ? 'lx-warn' : ''));
-    if (h) k.push(kpi('Supply', esc(vfmt(h.d.supply_mv)), 'V', `lowest this hour ${esc(vfmt(h.d.supply_min_mv))} V · level ${esc(h.d.level)} (${esc(LEVELS[h.d.level] || '?')})`));
-    else if (p) k.push(kpi('Supply', esc(vfmt(p.d.battery_mv)), 'V', 'about, from a position frame (100 mV steps)'));
+    k.push(kpi('Last frame', last ? esc(ago(last.time)) : '–', '', last ? `${esc(sast(last.time))} · ${esc(TYPE[last.type] || 'unknown')} · seq ${esc(last.seq)}` : 'No frames yet',
+      !last ? 'bad' : silent > 45 ? 'bad' : silent > 20 ? 'warn' : 'ok', 'a frame is due every 15 min; so-so after 20 min, sad after 45'));
+    const supLv = h ? h.d.level : null, supSt = supLv === null ? '' : supLv === 0 ? 'ok' : supLv === 1 ? 'warn' : 'bad';
+    if (h) k.push(kpi('Supply', esc(vfmt(h.d.supply_mv)), 'V', `lowest this hour ${esc(vfmt(h.d.supply_min_mv))} V · level ${esc(h.d.level)} (${esc(LEVELS[h.d.level] || '?')})`, supSt, 'happy at the full level, so-so at no_sd, sad at reduced or lower'));
+    else if (p) k.push(kpi('Supply', esc(vfmt(p.d.battery_mv)), 'V', 'about, from a position frame (100 mV steps)', p.d.battery_mv >= 3400 ? 'ok' : p.d.battery_mv >= 3000 ? 'warn' : 'bad', 'from the default level thresholds'));
     else k.push(kpi('Supply', '–', '', 'No health frame yet'));
     const pmv = h ? h.d.supply_mv : p ? p.d.battery_mv : null;
     if (pmv !== null) {
       const plv = h && PW.levels[h.d.level] ? h.d.level : levelOf(pmv), g = gpsPattern(all);
       const a = ttlHours(pmv, PW.caps[0], g), b = ttlHours(pmv, PW.caps[1], g);
-      k.push(plv <= 1 ? kpi('GPS left, no sun', esc(fmtRange(a[1], b[1])), '', `level ${esc(PW.levels[plv].name)} · <a href="#power-card" style="color:inherit">details</a>`, a[1] < 48 ? 'lx-bad' : a[1] < 120 ? 'lx-warn' : '')
-        : kpi('Reporting left, no sun', esc(fmtRange(a[3] ?? 0, b[3] ?? 0)), '', `level ${esc(PW.levels[plv].name)}: GPS off · <a href="#power-card" style="color:inherit">details</a>`, 'lx-bad'));
+      k.push(plv <= 1 ? kpi('GPS left, no sun', esc(fmtRange(a[1], b[1])), '', `level ${esc(PW.levels[plv].name)} · <a href="#power-card" style="color:inherit">details</a>`, a[1] < 24 ? 'bad' : a[1] < 72 ? 'warn' : 'ok', 'on the low (400 F) estimate: happy from 3 days, sad under 1 day')
+        : kpi('Reporting left, no sun', esc(fmtRange(a[3] ?? 0, b[3] ?? 0)), '', `level ${esc(PW.levels[plv].name)}: GPS off · <a href="#power-card" style="color:inherit">details</a>`, 'bad', 'GPS is off at this level'));
     }
-    k.push(kpi('Temperature', h ? esc(h.d.temp_c) : '–', h ? '°C' : '', h ? `chip, at ${esc(sast(h.time))}` : 'No health frame yet'));
-    k.push(kpi('GPS', fix ? esc(ago(fix.time)) : 'No fix yet', '', fix ? `last fix ${esc(fix.d.position[0].toFixed(5))}, ${esc(fix.d.position[1].toFixed(5))}` : h ? `${esc(h.d.gps_misses)} searches missed in a row` : '', fix ? '' : 'lx-warn'));
+    k.push(kpi('Temperature', h ? esc(h.d.temp_c) : '–', h ? '°C' : '', h ? `chip, at ${esc(sast(h.time))}` : 'No health frame yet',
+      !h ? '' : h.d.temp_c > 55 ? 'bad' : h.d.temp_c > 45 || h.d.temp_c === 0 ? 'warn' : 'ok', 'so-so above 45 °C or at 0 °C (0 also means colder), sad above 55 °C'));
+    const fixAgeH = fix ? (Date.now() / 1000 - fix.time) / 3600 : null;
+    k.push(kpi('GPS', fix ? esc(ago(fix.time)) : 'No fix yet', '', fix ? `last fix ${esc(fix.d.position[0].toFixed(5))}, ${esc(fix.d.position[1].toFixed(5))}` : h ? `${esc(h.d.gps_misses)} searches missed in a row` : '',
+      fixAgeH === null || fixAgeH > 12 ? 'bad' : fixAgeH > 2 ? 'warn' : 'ok', 'age of the newest fix: happy within 2 h, sad after 12 h'));
+    // GPS sky: what the newest search heard (the position frame's GPS result)
+    const ps = [...all].reverse().find(f => f.d && f.type === 'position');
+    if (ps) {
+      const day = all.filter(f => f.d && f.type === 'position' && f.time >= Date.now() / 1000 - 86400);
+      const n = r => day.filter(f => r.includes(f.d.fix)).length;
+      const SKY = { FIX: ['Satellites seen', 'ok', 'got a fix'], FIX_POOR: ['Satellites seen', 'ok', 'poor fix'], NO_FIX: ['Weak sky', 'warn', 'satellites heard, but no fix before the time-out'], NO_SKY: ['No satellites', 'bad', 'no satellite heard, search cut short'] }[ps.d.fix];
+      k.push(kpi('GPS sky', esc(SKY[0]), '', `last search ${esc(sast(ps.time).slice(11))}: ${esc(SKY[2])}<br>24 h: ${n(['FIX', 'FIX_POOR'])} fix · ${n(['NO_FIX'])} weak · ${n(['NO_SKY'])} no sky${h ? ` · ${esc(h.d.gps_misses === 15 ? '15+' : h.d.gps_misses)} missed in a row` : ''}`,
+        SKY[1], 'from the newest position frame: fix = happy, satellites heard but no fix = so-so, no satellites (no sky) = sad'));
+    }
     const mort = mortF ? mortF.d.mortality : null;
-    k.push(kpi('Mortality check', mort ? esc(mort[0].toUpperCase() + mort.slice(1)) : '–', '', mortF ? `from the ${esc(TYPE[mortF.type].toLowerCase())} frame at ${esc(sast(mortF.time).slice(11))}` : '', mort === 'confirmed' ? 'lx-bad' : mort === 'suspected' ? 'lx-warn' : ''));
-    if (tstF) { const bad = Object.entries(tstF.d.tests).filter(([, v]) => !v).map(([n]) => n); k.push(kpi('Self-tests', bad.length ? `${6 - bad.length} of 6` : 'All 6', '', bad.length ? `failed: ${esc(bad.join(', '))}` : 'passed', bad.length ? 'lx-bad' : 'lx-ok')); }
-    k.push(kpi('Delivery', dl.sent ? esc(Math.round(dl.got / dl.sent * 1000) / 10) : '–', dl.sent ? '%' : '', `${esc(dl.got)} of ${esc(dl.sent)} frames in this period`, dl.sent && dl.got / dl.sent < 0.9 ? 'lx-warn' : ''));
-    k.push(kpi('Signal', rssi !== null ? esc(Math.round(rssi)) : '–', rssi !== null ? 'dBm' : '', rssi !== null ? `median · SNR ${esc(snr !== null ? snr.toFixed(1) : '–')} dB · ${esc(stations)} base station${stations === 1 ? '' : 's'}` : ''));
+    k.push(kpi('Mortality check', mort ? esc(mort[0].toUpperCase() + mort.slice(1)) : '–', '', mortF ? `from the ${esc(TYPE[mortF.type].toLowerCase())} frame at ${esc(sast(mortF.time).slice(11))}` : '',
+      !mort ? '' : mort === 'confirmed' ? 'bad' : mort === 'suspected' ? 'warn' : 'ok', 'suspected = so-so, confirmed = sad'));
+    if (tstF) { const bad = Object.entries(tstF.d.tests).filter(([, v]) => !v).map(([n]) => n); k.push(kpi('Self-tests', bad.length ? `${6 - bad.length} of 6` : 'All 6', '', bad.length ? `failed: ${esc(bad.join(', '))}` : 'passed', bad.length ? 'bad' : 'ok', 'sad if any self-test failed')); }
+    const dpct = dl.sent ? dl.got / dl.sent : null;
+    k.push(kpi('Delivery', dl.sent ? esc(Math.round(dl.got / dl.sent * 1000) / 10) : '–', dl.sent ? '%' : '', `${esc(dl.got)} of ${esc(dl.sent)} frames in this period`,
+      dpct === null ? '' : dpct >= 0.9 ? 'ok' : dpct >= 0.75 ? 'warn' : 'bad', 'happy from 90% of frames received, sad under 75%'));
+    k.push(kpi('Signal', rssi !== null ? esc(Math.round(rssi)) : '–', rssi !== null ? 'dBm' : '', rssi !== null ? `median · SNR ${esc(snr !== null ? snr.toFixed(1) : '–')} dB · ${esc(stations)} base station${stations === 1 ? '' : 's'}` : '',
+      rssi === null ? '' : rssi >= -125 ? 'ok' : rssi >= -135 ? 'warn' : 'bad', 'median RSSI: happy from −125 dBm, sad below −135 dBm (frames start to go missing)'));
     $('kpis').innerHTML = k.join('');
   }
   function renderHealth(F) {
