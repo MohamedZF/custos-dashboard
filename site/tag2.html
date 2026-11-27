@@ -53,6 +53,42 @@
 #dash-root .lx-facts div { display: flex; flex-direction: column; gap: 2px; }
 #dash-root .lx-facts dt { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 #dash-root .lx-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+#dash-root .lx-jump { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-sm); }
+#dash-root .lx-jump a { color: var(--color-fg-muted); text-decoration: none; border-bottom: 1px dotted currentColor; }
+#dash-root .lx-jump a:hover { color: var(--color-fg); }
+#dash-root .lx-sec { scroll-margin-top: 12px; }
+#dash-root .lx-sec-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: calc(-1 * var(--cds-gap-sm)) 0 0; max-width: 60rem; line-height: 1.45; }
+#dash-root .lx-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); }
+@media (min-width: 1100px) { #dash-root .lx-panels { grid-template-columns: 2fr 3fr; } }
+#dash-root .lx-rose { min-height: 340px; display: flex; justify-content: center; }
+#dash-root .lx-bmap { height: 460px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; background: var(--color-bg); }
+#dash-root .lx-zoom-btns { display: flex; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-sm); flex-wrap: wrap; }
+#dash-root .lx-zoom-btns button { font: inherit; font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+#dash-root .lx-zoom-btns button[aria-pressed=true] { border-color: var(--color-fg); }
+#dash-root .lx-legend-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cds-gap-lg); font-size: var(--cds-font-size-caption); }
+#dash-root .lx-legend-card h4 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
+#dash-root .lx-legend-card .lx-leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--color-fg); }
+#dash-root .lx-leg-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+#dash-root .lx-leg-hours { color: var(--color-fg-muted); font-variant-numeric: tabular-nums; min-width: 6.5rem; }
+#dash-root .lx-interp ul { margin: 0; padding-left: 1.1rem; line-height: 1.45; }
+#dash-root .lx-interp li { margin-bottom: 4px; }
+#dash-root .lx-bar { height: 8px; border-radius: 4px; min-width: 2px; }
+@media (max-width: 560px) { #dash-root .lx-hide-narrow { display: none; } }
+#dash-root .lx-pw { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-lg); align-items: start; }
+#dash-root .lx-pw-now { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+#dash-root .lx-pw-level { font-family: var(--font-anthropic-serif); font-size: 1.6rem; line-height: 1.15; }
+#dash-root .lx-ladder { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-sm); }
+#dash-root .lx-ladder td, #dash-root .lx-ladder th { padding: 5px 8px; border-bottom: 1px solid var(--color-border-line); text-align: left; vertical-align: top; }
+#dash-root .lx-ladder th { color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); }
+#dash-root .lx-ladder tr.is-now td { background: color-mix(in srgb, var(--s1) 12%, transparent); font-weight: 500; }
+#dash-root .lx-ladder tr.is-now td:first-child { box-shadow: inset 3px 0 0 var(--s1); }
+#dash-root .lx-ttl-big { font-family: var(--font-anthropic-serif); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+#dash-root .lx-ttl-rows { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-size: var(--cds-font-size-caption); margin: var(--cds-gap-md) 0; font-variant-numeric: tabular-nums; }
+#dash-root .lx-ttl-rows span:nth-child(even) { text-align: right; white-space: nowrap; }
+#dash-root .lx-ttl-rows .lx-sub2 { color: var(--color-fg-muted); }
+#dash-root details.lx-how { margin-top: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; }
+#dash-root details.lx-how summary { cursor: pointer; color: var(--color-fg); }
+#dash-root details.lx-how ul { padding-left: 1.1rem; margin: 6px 0 0; }
 </style>
 <script src="lock.js"></script>
 <script src="custos-frames.js"></script>
@@ -83,13 +119,43 @@
     <div class="lx-range" role="group" aria-label="Time range">
       <button type="button" data-range="24h" aria-pressed="true">24 hours</button><button type="button" data-range="7d" aria-pressed="false">7 days</button><button type="button" data-range="30d" aria-pressed="false">30 days</button>
     </div>
+    <nav class="lx-jump" aria-label="Sections"><a href="#sec-health">Power and health</a><a href="#sec-activity">Activity</a><a href="#sec-behaviour">Behaviour</a><a href="#sec-gps">GPS</a><a href="#sec-link">Sigfox link</a><a href="#sec-frames">Frames</a></nav>
   </header>
 
   <p class="lx-card lx-range-empty" id="range-empty" hidden>No frames in this period.</p>
 
   <section class="lx-kpis" id="kpis" aria-label="Latest state"></section>
 
-  <h2 class="lx-sec">Power and health</h2>
+  <h2 class="lx-sec" id="sec-health">Power and health</h2>
+  <div class="lx-card" id="power-card">
+    <h3>Power level and time to live without sun</h3>
+    <p class="lx-note">Which power level the tag is in now, and how long its supercap lasts from here if it gets no more charge. Estimated from the V12 power testing report (26 Nov) and the functional spec's default levels.</p>
+    <div class="lx-pw">
+      <div>
+        <div class="lx-pw-now"><span class="lx-pw-level" id="pw-level">–</span><span class="lx-sub" id="pw-level-sub"></span></div>
+        <div class="lx-chart" id="pw-gauge" style="min-height:74px"></div>
+        <table class="lx-ladder" id="pw-ladder"></table>
+      </div>
+      <div>
+        <div class="lx-label" style="font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)">GPS tracking left with no sun</div>
+        <div class="lx-ttl-big" id="pw-ttl">–</div>
+        <div class="lx-sub" id="pw-ttl-sub" style="font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)"></div>
+        <div class="lx-ttl-rows" id="pw-rows"></div>
+        <div class="lx-note" id="pw-draw" style="margin:0"></div>
+        <div class="lx-note" id="pw-trend" style="margin:6px 0 0"></div>
+      </div>
+    </div>
+    <details class="lx-how"><summary>How this is worked out</summary>
+      <ul>
+        <li><b>Charge left</b> = capacitance × (supply now − the voltage where each level ends). The range uses the rated 400 F (low end) and the ~725 F measured on the bench between 3.67 and 3.62 V (high end); only that range has been measured.</li>
+        <li><b>Supply</b> is the newest health frame's PMIC reading (10 mV steps). The pads sit about 50 mV higher, and the current figures in the report are at the pads.</li>
+        <li><b>Current per level</b>, from the report: sleep 0.111 mA above 3.37 V at the pads, rising from 0.65 to 1.5 mA between 3.37 and 3.0 V (the XIAO regulator U1); Sigfox 190 mC a frame; GPS 16.5 mA while searching; accelerometer 23 mC and Bluetooth 4 mC a cycle; Sigfox and GPS cost up to 15% more at 3.0 V. Survival and hold hibernate at 1.7 µA, waking every 15 min (12.6 mC), plus a 333 mC frame every 6 h in survival.</li>
+        <li><b>GPS use</b> follows what the tag is doing now: searches an hour (one an hour once it backs off after 3 misses), and the mean search length from its recent position frames (the time to fix, 45 s for no satellites, 120 s for a timeout). With fixes, the 35 s ephemeris refresh every 2 h is added.</li>
+        <li><b>Levels</b> are the default CONFIG.TXT ones (PMIC readings): full 3400 mV, no_sd 3000, reduced 2800, survival 2750, hold below. A changed config moves these.</li>
+        <li>Not included: sunlight, temperature, the capacitor's charge per volt changing lower in its range, Bluetooth visits and restarts. Treat the result as a guide, not a promise.</li>
+      </ul>
+    </details>
+  </div>
   <div class="lx-grid">
     <div class="lx-card"><h3>Supply voltage</h3><p class="lx-note">The supercap as the tag's PMIC reads it (about 30–60 mV under the cap). Health frames give it to 10 mV with the hour's lowest; position and start-up frames to 100 mV.</p>
       <div class="lx-legend"><span><i class="lx-sw" style="background:var(--s1)"></i>Health frame</span><span><i class="lx-sw" style="background:var(--s2)"></i>Lowest that hour</span><span><i class="lx-sw" style="background:var(--s4)"></i>Position / start-up frame</span></div>
@@ -101,7 +167,7 @@
     <div class="lx-tests" id="tests"></div>
     <div class="lx-tbl-wrap" style="margin-top:14px;max-height:16rem"><table class="lx-tbl" id="events"></table></div></div>
 
-  <h2 class="lx-sec">Activity</h2>
+  <h2 class="lx-sec" id="sec-activity">Activity</h2>
   <div class="lx-grid">
     <div class="lx-card"><h3>Activity score per 15-minute cycle</h3><p class="lx-note">Median of each cycle's accelerometer readings, 0 (still) to 7, from the activity frames. Each frame covers the hour's four cycles.</p>
       <div class="lx-chart" id="ch-act"></div></div>
@@ -110,16 +176,55 @@
       <div class="lx-chart" id="ch-pitch"></div></div>
   </div>
 
-  <h2 class="lx-sec">GPS</h2>
+  <h2 class="lx-sec" id="sec-behaviour">Behaviour: daily activity and movement</h2>
+  <p class="lx-sec-note">Patterns by time of day over the chosen period. Choose 7 or 30 days for a clearer picture: one day gives only one value per hour.</p>
+  <div class="lx-panels">
+    <div class="lx-card">
+      <h3>A. Daily activity profile</h3>
+      <p class="lx-note">Mean activity score (0 still to 7) of the 15-minute cycles in each hour of the day, SAST, from the activity frames: <span id="rose-n">–</span> cycles in this period.</p>
+      <div class="lx-chart lx-rose" id="ch-rose"></div>
+    </div>
+    <div class="lx-card">
+      <h3>B. GPS movement and site use</h3>
+      <p class="lx-note"><span id="bmap-n">–</span> fixes coloured by the time of day of the fix, with the movement track between ~100 m cells. Fixes at the same spot are merged; dot size shows how many. The newest fix has a dark ring. Hover a dot for details.</p>
+      <div class="lx-zoom-btns" role="group" aria-label="Map view">
+        <button type="button" data-view="all" aria-pressed="true">Whole range</button><button type="button" data-view="a" id="view-a">Site 1</button><button type="button" data-view="b" id="view-b">Site 2</button><button type="button" data-view="last">Latest fix</button>
+      </div>
+      <div class="lx-bmap" id="bmap"></div>
+    </div>
+  </div>
+  <div class="lx-card lx-legend-card">
+    <div><h4>Time of day (SAST)</h4><div id="leg-windows"></div></div>
+    <div><h4>Map features</h4>
+      <div class="lx-leg-row"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="var(--color-fg-muted)" stroke-width="2"/></svg> Movement track, coloured by time of day</div>
+      <div class="lx-leg-row"><svg width="26" height="14" aria-hidden="true"><circle cx="13" cy="7" r="6" fill="var(--cds-chart-status-critical)" fill-opacity="0.18" stroke="var(--cds-chart-status-critical)" stroke-opacity="0.5"/></svg> Most-used sites, 150 m radius</div>
+      <div class="lx-leg-row"><svg width="26" height="14" aria-hidden="true"><path d="M13 1 L15 6 L20 6 L16 9 L17.5 14 L13 11 L8.5 14 L10 9 L6 6 L11 6 Z" fill="var(--color-fg)"/></svg> Site centre</div>
+      <div class="lx-leg-row" style="color:var(--color-fg-muted)">Background map © OpenStreetMap contributors</div></div>
+    <div class="lx-interp"><h4>What the data shows</h4><ul id="interp"><li>–</li></ul></div>
+  </div>
   <div class="lx-grid">
-    <div class="lx-card"><h3>Positions</h3><p class="lx-note" id="map-note">GPS fixes from position and start-up frames. The newest is the large marker.</p>
-      <div class="lx-map2" id="map"></div></div>
+    <div class="lx-card"><h3>Orientation changes by hour of day</h3><p class="lx-note">Mean turns per hour (readings where the tag's orientation changed), from the activity frames.</p>
+      <div class="lx-chart" id="ch-turns-hod"></div></div>
+    <div class="lx-card"><h3>Time still by hour of day</h3><p class="lx-note">Mean minutes without movement in each hour, from the health frames (10-minute steps).</p>
+      <div class="lx-chart" id="ch-still-hod"></div></div>
+  </div>
+  <div class="lx-card"><h3>Activity by time window</h3>
+    <p class="lx-note"><b id="win-take">–</b></p>
+    <div class="lx-tbl-wrap"><table class="lx-tbl" id="tbl-windows"></table></div></div>
+  <div class="lx-card"><h3>Most visited locations</h3>
+    <p class="lx-note">Fixes grouped to a ~100 m grid (3 decimal places), the 10 busiest cells.</p>
+    <div class="lx-tbl-wrap"><table class="lx-tbl" id="tbl-locs"></table></div></div>
+
+  <h2 class="lx-sec" id="sec-gps">GPS</h2>
+  <div class="lx-grid">
     <div class="lx-card"><h3>GPS results</h3><p class="lx-note">What each position frame's search found. Indoors the tag hears no satellites and backs off to one search an hour.</p>
       <dl class="lx-facts" id="gps-facts"></dl>
       <div class="lx-tbl-wrap" style="max-height:14rem"><table class="lx-tbl" id="fixes"></table></div></div>
+    <div class="lx-card"><h3>Fix rate by hour of day</h3><p class="lx-note">Share of position-frame searches that got a fix, by the hour of the search (SAST). Hover a bar for the median time to fix.</p>
+      <div class="lx-chart" id="ch-fix-hod"></div></div>
   </div>
 
-  <h2 class="lx-sec">Sigfox link</h2>
+  <h2 class="lx-sec" id="sec-link">Sigfox link</h2>
   <div class="lx-grid">
     <div class="lx-card"><h3>Signal at the base station</h3><p class="lx-note">RSSI of each frame as the backend reported it. Below about −135 dBm frames start to go missing.</p>
       <div class="lx-chart" id="ch-rssi"></div></div>
@@ -128,7 +233,7 @@
       <div class="lx-tbl-wrap" style="max-height:12rem"><table class="lx-tbl" id="gaps"></table></div></div>
   </div>
 
-  <h2 class="lx-sec">Frames</h2>
+  <h2 class="lx-sec" id="sec-frames">Frames</h2>
   <div class="lx-card"><p class="lx-note" style="margin-top:0">Every frame in this period, newest first, decoded.</p>
     <div class="lx-tbl-wrap"><table class="lx-tbl" id="log"></table></div></div>
 
@@ -239,6 +344,13 @@
     if (h) k.push(kpi('Supply', esc(vfmt(h.d.supply_mv)), 'V', `lowest this hour ${esc(vfmt(h.d.supply_min_mv))} V · level ${esc(h.d.level)} (${esc(LEVELS[h.d.level] || '?')})`));
     else if (p) k.push(kpi('Supply', esc(vfmt(p.d.battery_mv)), 'V', 'about, from a position frame (100 mV steps)'));
     else k.push(kpi('Supply', '–', '', 'No health frame yet'));
+    const pmv = h ? h.d.supply_mv : p ? p.d.battery_mv : null;
+    if (pmv !== null) {
+      const plv = h && PW.levels[h.d.level] ? h.d.level : levelOf(pmv), g = gpsPattern(all);
+      const a = ttlHours(pmv, PW.caps[0], g), b = ttlHours(pmv, PW.caps[1], g);
+      k.push(plv <= 1 ? kpi('GPS left, no sun', esc(fmtRange(a[1], b[1])), '', `level ${esc(PW.levels[plv].name)} · <a href="#power-card" style="color:inherit">details</a>`, a[1] < 48 ? 'lx-bad' : a[1] < 120 ? 'lx-warn' : '')
+        : kpi('Reporting left, no sun', esc(fmtRange(a[3] ?? 0, b[3] ?? 0)), '', `level ${esc(PW.levels[plv].name)}: GPS off · <a href="#power-card" style="color:inherit">details</a>`, 'lx-bad'));
+    }
     k.push(kpi('Temperature', h ? esc(h.d.temp_c) : '–', h ? '°C' : '', h ? `chip, at ${esc(sast(h.time))}` : 'No health frame yet'));
     k.push(kpi('GPS', fix ? esc(ago(fix.time)) : 'No fix yet', '', fix ? `last fix ${esc(fix.d.position[0].toFixed(5))}, ${esc(fix.d.position[1].toFixed(5))}` : h ? `${esc(h.d.gps_misses)} searches missed in a row` : '', fix ? '' : 'lx-warn'));
     const mort = mortF ? mortF.d.mortality : null;
@@ -262,6 +374,119 @@
     const ev = [...H].reverse();
     $('events').innerHTML = ev.length ? '<thead><tr><th>Health frame</th><th class="lx-num">Events</th><th>Last event</th><th class="lx-num">GPS misses</th><th class="lx-num">Restarts</th><th>SD</th></tr></thead><tbody>' + ev.map(f => `<tr><td>${esc(sast(f.time))}</td><td class="lx-num">${esc(f.d.errors === 15 ? '15+' : f.d.errors)}</td><td>${f.d.errors ? `${esc(f.d.last_error)} · ${esc(EV[f.d.last_error] || 'unknown code')}` : '–'}</td><td class="lx-num">${esc(f.d.gps_misses)}</td><td class="lx-num">${esc(f.d.restarts)}</td><td>${esc(f.d.last_sd)}${f.d.sd_free_pct !== null ? `, ${esc(f.d.sd_free_pct)}% free` : ''}</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td>No health frames in this period.</td></tr></tbody>';
   }
+  // ---------- power level and time to live (no sun) ----------
+  // Figures from "Custos V12 power testing report" (26 Nov 2026) and the functional spec's default levels.
+  const PW = {
+    offset: 50,                                  // pads are ~30-70 mV above the PMIC reading
+    caps: [400, 725],                            // rated, and measured at 3.67-3.62 V
+    levels: [                                    // default CONFIG.TXT, PMIC mV
+      { name: 'full', from: 3400, runs: 'GPS, accelerometer, daily SD write, 4 frames an hour, Bluetooth every cycle' },
+      { name: 'no_sd', from: 3000, runs: 'as full, but no SD write (data waits in flash)' },
+      { name: 'reduced', from: 2800, runs: 'no GPS; accelerometer; :15 activity and :45 health frames only' },
+      { name: 'survival', from: 2750, runs: 'hibernates; one health frame and Bluetooth every 6 h' },
+      { name: 'hold', from: 0, runs: 'hibernates; sends nothing' },
+    ],
+    sleepMa: vPad => vPad >= 3.37 ? 0.111 : 0.65 + (1.5 - 0.65) * Math.min(1, (3.37 - vPad) / 0.37),
+    sigfoxMc: 190, gpsMa: 16.5, accMcCycle: 23, bleMcCycle: 3.9, sdMcDay: 64,
+    hibMa: 0.0017, wakeMc: 12.6, survFrameMc: 333,
+  };
+  const levelOf = pm => PW.levels.findIndex(l => pm >= l.from);
+  const hotK = vPad => 1 + 0.15 * Math.max(0, Math.min(1, (3.7 - vPad) / 0.7));   // GPS and Sigfox cost ~15% more at 3.0 V
+  // mC per hour at a pad voltage, in a level, for a GPS pattern { perHour, searchS, ephS }
+  function drawMcH(vPad, lv, gps) {
+    if (lv >= 3) return PW.hibMa * 3600 + 4 * PW.wakeMc + (lv === 3 ? PW.survFrameMc / 6 : 0);
+    const k = hotK(vPad);
+    let q = PW.sleepMa(vPad) * 3600 + 4 * (PW.accMcCycle + PW.bleMcCycle);
+    q += (lv <= 1 ? 4 : 2) * PW.sigfoxMc * k;
+    if (lv <= 1) q += (gps.perHour * gps.searchS + gps.ephS) * PW.gpsMa * k;
+    if (lv === 0) q += PW.sdMcDay / 24;
+    return q;
+  }
+  // Hours until each level ends, stepping the supercap down 5 mV at a time.
+  function ttlHours(pmic, cap, gps) {
+    const ends = {}; let h = 0;
+    for (let pm = pmic; pm > 2550; pm -= 5) {
+      const lv = levelOf(pm), vPad = (pm + PW.offset) / 1000;
+      h += cap * 0.005 * 1000 / drawMcH(vPad, lv, gps);
+      const next = levelOf(pm - 5);
+      if (next !== lv) ends[lv] = h;
+    }
+    ends.total = h;
+    return ends;
+  }
+  // GPS pattern from what the tag is doing now (recent position frames and the GPS-miss count).
+  function gpsPattern(F) {
+    const since = Date.now() / 1000 - 24 * 3600;
+    const P = all.filter(f => f.type === 'position' && f.d && f.time >= since);
+    const h = [...all].reverse().find(f => f.type === 'health' && f.d);
+    if (!P.length) return { perHour: 4, searchS: 10, ephS: 17.5, text: 'no recent position frames: assuming outdoor 10 s fixes' };
+    const len = f => (f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR') ? Math.max(3, f.d.ttf_s) : f.d.fix === 'NO_SKY' ? 45 : 120;
+    const recent = P.slice(-8);
+    const searchS = Math.round(d3.mean(recent, len));
+    const backedOff = h && h.d.gps_misses >= 3;
+    const fixes = recent.filter(f => f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR').length;
+    return { perHour: backedOff ? 1 : 4, searchS, ephS: fixes ? 17.5 : 0,
+      text: `${backedOff ? 'backed off to 1 search an hour' : '4 searches an hour'}, about ${searchS} s each (${fixes} of the last ${recent.length} got a fix)` };
+  }
+  const fmtDur = h => h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${h < 10 ? h.toFixed(1) : Math.round(h)} h` : `${(h / 24).toFixed(h < 240 ? 1 : 0)} days`;
+  const fmtRange = (a, b) => { const x = fmtDur(a), y = fmtDur(b); const ua = x.split(' ')[1], ub = y.split(' ')[1]; return ua === ub ? `${x.split(' ')[0]}–${y}` : `${x} – ${y}`; };
+  const dateAt = h => sast(Date.now() / 1000 + h * 3600).slice(5, 16).replace('-', '/');
+
+  function renderPower() {
+    const h = [...all].reverse().find(f => f.type === 'health' && f.d);
+    const p = [...all].reverse().find(f => f.d && (f.type === 'position' || f.type === 'start-up'));
+    const src = h && (!p || h.time >= p.time - 3 * 3600) ? { mv: h.d.supply_mv, t: h.time, lv: h.d.level, from: 'health frame' } : p ? { mv: p.d.battery_mv, t: p.time, lv: null, from: `${TYPE[p.type].toLowerCase()} frame, 100 mV steps` } : null;
+    if (!src) { $('pw-level').textContent = 'No supply reading yet'; return; }
+    const modelLv = levelOf(src.mv), lv = src.lv !== null && PW.levels[src.lv] ? src.lv : modelLv;
+    $('pw-level').textContent = PW.levels[lv].name;
+    $('pw-level').className = 'lx-pw-level ' + (lv === 0 ? 'lx-ok' : lv <= 1 ? '' : lv === 2 ? 'lx-warn' : 'lx-bad');
+    $('pw-level-sub').textContent = `level ${lv} of 4 · supply ${vfmt(src.mv)} V (PMIC) · ${src.from} at ${sast(src.t).slice(5)}` + (src.lv !== null && src.lv !== modelLv ? ` · the default levels would give ${PW.levels[modelLv].name}, so this tag's CONFIG.TXT may differ` : '');
+    // gauge
+    const box = $('pw-gauge'); box.innerHTML = '';
+    const W = Math.max(280, box.clientWidth || 400), H = 74, m = { l: 6, r: 6 };
+    const x = d3.scaleLinear([2650, 3950], [m.l, W - m.r]).clamp(true);
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Supply voltage against the power levels');
+    const segs = [[2650, 2750, 'hold', 'var(--color-bad)'], [2750, 2800, 'surv.', 'var(--s5)'], [2800, 3000, 'reduced', 'var(--s3)'], [3000, 3400, 'no_sd', 'var(--s1)'], [3400, 3950, 'full', 'var(--s4)']];
+    segs.forEach(([a, b, n, c], i) => {
+      svg.append('rect').attr('x', x(a)).attr('width', x(b) - x(a) - 1).attr('y', 22).attr('height', 14).attr('fill', c).attr('fill-opacity', PW.levels[lv].name.startsWith(n.replace('.', '')) ? 0.9 : 0.35).attr('rx', 2);
+      if (x(b) - x(a) > 34) svg.append('text').attr('class', 'lx-tick').attr('x', (x(a) + x(b)) / 2).attr('y', 14).attr('text-anchor', 'middle').text(n);
+      if (i) svg.append('text').attr('class', 'lx-tick').attr('x', x(a)).attr('y', 52).attr('text-anchor', 'middle').text((a / 1000).toFixed(a % 100 ? 2 : 1));
+    });
+    const reg = 3370 - PW.offset;
+    svg.append('line').attr('x1', x(reg)).attr('x2', x(reg)).attr('y1', 18).attr('y2', 40).attr('stroke', 'var(--color-fg)').attr('stroke-dasharray', '2 2');
+    svg.append('text').attr('class', 'lx-tick').attr('x', x(reg) - 3).attr('y', 68).attr('text-anchor', 'end').text('regulator band below');
+    svg.append('path').attr('d', `M${x(src.mv)},40 l-6,10 h12 z`).attr('fill', 'var(--color-fg)');
+    svg.append('text').attr('class', 'lx-tick').attr('x', Math.min(W - 30, Math.max(30, x(src.mv)))).attr('y', 66).attr('text-anchor', 'middle').attr('font-weight', 600).style('fill', 'var(--color-fg)').text(`now ${vfmt(src.mv)} V`);
+    // ladder
+    $('pw-ladder').innerHTML = '<thead><tr><th>Level</th><th>From</th><th>What runs</th></tr></thead><tbody>' + PW.levels.map((l, i) => `<tr class="${i === lv ? 'is-now' : ''}"><td>${i}&nbsp;${esc(l.name)}</td><td style="white-space:nowrap">${l.from ? (l.from / 1000).toFixed(2) + ' V' : 'below'}</td><td>${esc(l.runs)}</td></tr>`).join('') + '</tbody>';
+    // time to live
+    const gps = gpsPattern(F_ALL());
+    const lo = ttlHours(src.mv, PW.caps[0], gps), hi = ttlHours(src.mv, PW.caps[1], gps);
+    const out = { perHour: 4, searchS: 10, ephS: 17.5 };
+    const oLo = ttlHours(src.mv, PW.caps[0], out), oHi = ttlHours(src.mv, PW.caps[1], out);
+    const row = (label, k) => lo[k] === undefined ? '' : `<span>${label}</span><span>${fmtRange(lo[k], hi[k])} <span class="lx-sub2">· ${dateAt(lo[k])}–${dateAt(hi[k])}</span></span>`;
+    if (lv >= 2) { $('pw-ttl').textContent = 'GPS off'; $('pw-ttl-sub').textContent = 'Below 3.00 V the tag no longer searches for fixes.'; }
+    else { $('pw-ttl').textContent = fmtRange(lo[1], hi[1]); $('pw-ttl').className = 'lx-ttl-big' + (lo[1] < 48 ? ' lx-bad' : lo[1] < 120 ? ' lx-warn' : ''); $('pw-ttl-sub').textContent = `until 3.00 V, ${dateAt(lo[1])} to ${dateAt(hi[1])} SAST (400 F rated – 725 F measured)`; }
+    $('pw-rows').innerHTML = row('Full level ends (3.40 V; SD writes stop)', 0) + row('GPS stops (3.00 V)', 1) + row('Only :15 and :45 frames until (2.80 V)', 2) + row('Last 6-hourly frames until (2.75 V)', 3) +
+      (lv <= 1 ? `<span class="lx-sub2">GPS tracking if it got 10 s outdoor fixes</span><span class="lx-sub2">${fmtRange(oLo[1], oHi[1])}</span>` : '');
+    const now = drawMcH((src.mv + PW.offset) / 1000, lv, gps) / 3600;
+    const gpsPart = lv <= 1 ? (gps.perHour * gps.searchS + gps.ephS) * PW.gpsMa * hotK((src.mv + PW.offset) / 1000) / 3600 : 0;
+    $('pw-draw').innerHTML = `Drawing about <b>${now.toFixed(2)} mA</b> now${lv <= 1 ? ` (GPS ${gpsPart.toFixed(2)} mA: ${esc(gps.text)})` : ''}. ${(src.mv + PW.offset) < 3370 ? 'The supply is in the regulator band, where sleep alone draws 0.65–1.5 mA.' : 'Once the pads fall below 3.37 V, sleep current rises from 0.11 to 0.65–1.5 mA.'}`;
+    // observed trend over the last 24 h of health frames
+    const since = Date.now() / 1000 - 24 * 3600;
+    const HF = all.filter(f => f.type === 'health' && f.d && f.time >= since);
+    if (HF.length >= 3) {
+      const t0 = HF[0].time, xs = HF.map(f => (f.time - t0) / 3600), ys = HF.map(f => f.d.supply_mv);
+      const mx = d3.mean(xs), my = d3.mean(ys), sl = d3.sum(xs, (v, i) => (v - mx) * (ys[i] - my)) / (d3.sum(xs, v => (v - mx) ** 2) || 1);
+      const perDay = sl * 24;
+      $('pw-trend').textContent = Math.abs(perDay) < 5
+        ? `Measured over the last 24 h: the supply held steady (${perDay >= 0 ? '+' : ''}${Math.round(perDay)} mV a day over ${HF.length} health frames), so it is getting about as much charge as it uses (sun, or a bench supply).`
+        : perDay > 0 ? `Measured over the last 24 h: the supply rose ${Math.round(perDay)} mV a day, so it is charging faster than it uses.`
+        : `Measured over the last 24 h: the supply fell ${Math.round(-perDay)} mV a day, a net draw of about ${(-sl / 1000 * PW.caps[0] / 3.6).toFixed(2)}–${(-sl / 1000 * PW.caps[1] / 3.6).toFixed(2)} mA (400–725 F) after any sun. At that rate it reaches 3.00 V in about ${fmtDur((src.mv - 3000) / -sl)}${src.mv <= 3000 ? ' (already below)' : ''}, sun included.`;
+    } else $('pw-trend').textContent = '';
+  }
+  const F_ALL = () => all;
+
   function renderActivity(F) {
     const A = F.filter(f => f.type === 'acc');
     const cyc = A.flatMap(f => f.d.act_median.map((a, i) => a === null ? null : { t: f.time - (3 - i) * 900, v: a, pmin: f.d.pitch_min_deg[i], pmax: f.d.pitch_max_deg[i], roll: f.d.roll_deg[i] }).filter(Boolean));
@@ -287,27 +512,231 @@
       <div><dt>No satellites / timed out</dt><dd>${esc(count('NO_SKY'))} / ${esc(count('NO_FIX'))}</dd></div><div><dt>Median time to fix</dt><dd>${ttf === null ? '–' : esc(ttf) + ' s'}</dd></div>`;
     const rows = [...fixes].reverse().slice(0, 50);
     $('fixes').innerHTML = rows.length ? '<thead><tr><th>Frame</th><th>Position</th><th class="lx-num">HDOP</th><th class="lx-num">TTF</th></tr></thead><tbody>' + rows.map(f => `<tr><td>${esc(sast(f.time))}</td><td>${esc(f.d.position[0].toFixed(5))}, ${esc(f.d.position[1].toFixed(5))}</td><td class="lx-num">${f.type === 'position' ? esc(f.d.hdop) : '–'}</td><td class="lx-num">${esc(f.d.ttf_s)} s</td></tr>`).join('') + '</tbody>' : '<tbody><tr><td>No GPS fixes in this period.</td></tr></tbody>';
-    drawMap(fixes);
+    const B = behaviour(F);
+    hodBars($('ch-fix-hod'), d3.range(24).map(h => { const s = B.searches.filter(x => x.h === h), ok = s.filter(x => x.ok); return { k: h, v: s.length ? Math.round(ok.length / s.length * 100) : null, n: s.length, ok: ok.length, ttf: median(ok.map(x => x.ttf)) }; }),
+      { color: 'var(--s4)', max: 100, yfmt: v => v + '%', empty: 'No position frames in this period.', tip: d => d.n ? [`${d.v}% got a fix (${d.ok} of ${d.n})`, d.ok ? `median time to fix ${d.ttf} s` : 'no fixes'] : ['No searches'] });
   }
-  function drawMap(fixes) {
-    const box = $('map');
-    if (typeof L === 'undefined') { empty(box, 'The map library did not load.'); return; }
-    if (!fixes.length) {
-      if (map) { map.remove(); map = null; }
-      empty(box, 'No GPS fix in this period. Indoors the tag hears no satellites.'); return;
-    }
-    if (!map) { box.innerHTML = ''; map = L.map(box, { scrollWheelZoom: false }); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map); }
-    if (mapLayer) mapLayer.remove();
-    mapLayer = L.layerGroup().addTo(map);
-    const ll = fixes.map(f => [f.d.position[0], f.d.position[1]]);
-    if (ll.length > 1) L.polyline(ll, { color: getComputedStyle(document.documentElement).getPropertyValue('--s1').trim() || '#2860c8', weight: 2, opacity: .6 }).addTo(mapLayer);
-    fixes.forEach((f, i) => {
-      const lastOne = i === fixes.length - 1;
-      L.circleMarker(ll[i], { radius: lastOne ? 9 : 5, weight: 2, color: '#fff', fillColor: lastOne ? '#c2410c' : '#2860c8', fillOpacity: .95 })
-        .bindTooltip(`${sast(f.time)} SAST<br>${ll[i][0].toFixed(5)}, ${ll[i][1].toFixed(5)}${f.type === 'position' ? `<br>HDOP ${f.d.hdop}, ${f.d.ttf_s} s` : '<br>start-up fix'}`).addTo(mapLayer);
+
+  // ---------- behaviour: time of day ----------
+  // The same four windows as the Custos 11 dashboards (tag.html).
+  const WINS = [
+    { key: 'Morning', hours: '05:00–08:59', from: 5, to: 9, color: 'var(--s3)' },
+    { key: 'Day', hours: '09:00–16:59', from: 9, to: 17, color: 'var(--s1)' },
+    { key: 'Dusk', hours: '17:00–19:59', from: 17, to: 20, color: 'var(--s5)' },
+    { key: 'Night', hours: '20:00–04:59', from: 20, to: 29, color: 'var(--s6)' },
+  ];
+  const winOf = h => WINS.find(w => (h >= w.from && h < w.to) || (h + 24 >= w.from && h + 24 < w.to));
+  const winColor = k => WINS.find(w => w.key === k).color;
+  const cssColor = v => { const m = /^var\((--[^)]+)\)$/.exec(v); return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v; };
+  const hh = h => String(h).padStart(2, '0') + ':00';
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const hourS = t => new Date(t * 1000 + 2 * 3600e3).getUTCHours();
+  // A frame's own UTC time ("MM-DD HH:MM UTC", no year) as Unix seconds; the year comes from when the network got it.
+  function decT(f, s) {
+    const m = /^(\d\d)-(\d\d) (\d\d):(\d\d)/.exec(s || ''); if (!m) return null;
+    const y = new Date(f.time * 1000).getUTCFullYear();
+    let t = Date.UTC(y, m[1] - 1, +m[2], +m[3], +m[4]) / 1000;
+    if (t > f.time + 2 * 86400) t = Date.UTC(y - 1, m[1] - 1, +m[2], +m[3], +m[4]) / 1000;
+    return t;
+  }
+  const metres = (a, b) => { const r = Math.PI / 180, x = (b.lon - a.lon) * r * Math.cos((a.lat + b.lat) * r / 2), y = (b.lat - a.lat) * r; return Math.hypot(x, y) * 6371e3; };
+
+  function behaviour(F) {
+    const cycles = [], turns = [], still = [], fixes = [], searches = [];
+    F.forEach(f => {
+      if (!f.d) return;
+      if (f.type === 'acc') {
+        const end = decT(f, f.d.hour_end) ?? f.time - 40;
+        f.d.act_median.forEach((a, i) => { if (a !== null) cycles.push({ h: hourS(end - (3 - i) * 900 - 450), a }); });
+        turns.push({ h: hourS(end - 1800), v: f.d.turns });
+      } else if (f.type === 'health') {
+        const end = decT(f, f.d.cycle_end) ?? f.time - 40, s = f.d.still_min_last_hour;
+        still.push({ h: hourS(end - 1800), v: s === 60 ? 60 : s === 0 ? 0 : parseInt(String(s).replace(/\D/g, ''), 10) - 5 });
+      }
+      if (f.type === 'position') searches.push({ h: hourS(f.time - 14 * 60), ok: f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR', ttf: f.d.ttf_s });
+      if ((f.type === 'position' || f.type === 'start-up') && f.d.position && (f.d.fix === 'FIX' || f.d.fix === 'FIX_POOR')) {
+        const t = decT(f, f.type === 'position' ? f.d.fix_time : f.d.sent) ?? f.time, h = hourS(t);
+        fixes.push({ lat: f.d.position[0], lon: f.d.position[1], t, h, w: winOf(h).key, poor: f.d.fix === 'FIX_POOR', hdop: f.type === 'position' ? f.d.hdop : null, ttf: f.d.ttf_s, startup: f.type === 'start-up' });
+      }
     });
-    if (ll.length === 1) map.setView(ll[0], 16); else map.fitBounds(ll, { padding: [24, 24], maxZoom: 17 });
-    setTimeout(() => map && map.invalidateSize(), 50);
+    fixes.sort((a, b) => a.t - b.t);
+    // ~100 m cells: merged dots (per cell and window) and the busiest cells
+    const pts = new Map(), cells = new Map();
+    fixes.forEach(p => {
+      const c = p.lat.toFixed(3) + ', ' + p.lon.toFixed(3);
+      const k = c + '|' + p.w;
+      const a = pts.get(k) || { lat: 0, lon: 0, n: 0, w: p.w, last: 0, hd: [], tt: [] };
+      a.lat += p.lat; a.lon += p.lon; a.n++; a.last = Math.max(a.last, p.t); if (p.hdop !== null) a.hd.push(p.hdop); a.tt.push(p.ttf); pts.set(k, a);
+      const b = cells.get(c) || { cell: c, lat: 0, lon: 0, n: 0, first: p.t, last: p.t };
+      b.lat += p.lat; b.lon += p.lon; b.n++; b.first = Math.min(b.first, p.t); b.last = Math.max(b.last, p.t); cells.set(c, b);
+    });
+    const dots = [...pts.values()].map(a => ({ ...a, lat: a.lat / a.n, lon: a.lon / a.n }));
+    const locs = [...cells.values()].map(b => ({ ...b, lat: b.lat / b.n, lon: b.lon / b.n })).sort((a, b) => b.n - a.n || b.last - a.last).slice(0, 10);
+    const track = fixes.filter((p, i) => i === 0 || p.lat.toFixed(3) + p.lon.toFixed(3) !== fixes[i - 1].lat.toFixed(3) + fixes[i - 1].lon.toFixed(3));
+    // Site 1 is the busiest cell; Site 2 the busiest cell more than 500 m from it.
+    const s2 = locs.slice(1).find(d => metres(locs[0], d) > 500);
+    const sites = locs.length ? [locs[0], s2].filter(Boolean).map((d, i) => ({ ...d, name: `Site ${i + 1}` })) : [];
+    return { cycles, turns, still, fixes, searches, dots, locs, track, sites };
+  }
+
+  // Bars for the 24 hours of the day. rows: [{ k: hour, v: value or null, ... }]
+  function hodBars(box, rows, opt) {
+    if (!rows.some(r => r.v !== null)) return empty(box, opt.empty || 'Nothing in this period.');
+    box.innerHTML = '';
+    const W = Math.max(280, box.clientWidth || 400), H = 200, m = { l: 40, r: 8, t: 10, b: 24 };
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const x = d3.scaleBand(d3.range(24), [m.l, W - m.r]).padding(0.2);
+    const y = d3.scaleLinear([0, opt.max || Math.max(1, d3.max(rows, r => r.v) || 1)], [H - m.b, m.t]); if (!opt.max) y.nice(4);
+    svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('class', 'lx-tick').attr('x', m.l - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').text(opt.yfmt || (d => d));
+    svg.append('g').selectAll('text').data(d3.range(0, 24, 3)).join('text').attr('class', 'lx-tick').attr('x', h => x(h) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text(h => String(h).padStart(2, '0'));
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).attr('stroke', 'var(--cds-chart-axis)');
+    svg.append('g').selectAll('rect').data(rows.filter(r => r.v !== null)).join('rect').attr('x', r => x(r.k)).attr('width', x.bandwidth()).attr('y', r => y(r.v)).attr('height', r => Math.max(1, y(0) - y(r.v))).attr('rx', 2)
+      .attr('fill', r => opt.color || winColor(winOf(r.k).key));
+    const t = tip(box);
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', r => x(r.k)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointerenter', function (ev, r) {
+        d3.select(this).attr('fill', 'var(--cds-chart-grid)').attr('fill-opacity', 0.5);
+        t.innerHTML = `<div class="lx-tip-h">${hh(r.k)}–${String(r.k).padStart(2, '0')}:59 SAST · ${winOf(r.k).key}</div>` + opt.tip(r).map(s => `<div>${esc(s)}</div>`).join('');
+        t.style.display = 'block';
+        const bx = (x(r.k) + x.bandwidth()) * (box.clientWidth / W);
+        t.style.left = Math.min(Math.max(0, bx + 6), box.clientWidth - t.offsetWidth) + 'px'; t.style.top = '6px';
+      })
+      .on('pointerleave', function () { d3.select(this).attr('fill', 'transparent'); t.style.display = 'none'; });
+  }
+
+  function drawRose(box, rows) {
+    if (!rows.some(r => r.n)) return empty(box, 'No activity frames in this period.');
+    box.innerHTML = '';
+    const W = Math.max(280, box.clientWidth || 380), S = Math.min(W, 380), H = S;
+    const cx = W / 2, cy = H / 2, R = S / 2 - 34;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img').attr('aria-label', 'Mean activity score by hour of day');
+    const r = d3.scaleLinear([0, Math.max(1, d3.max(rows, d => d.mean) || 1)], [0, R]).nice();
+    const ticks = r.ticks(4).filter(v => v > 0);
+    const g = svg.append('g').attr('transform', `translate(${cx},${cy})`);
+    g.selectAll('circle.ring').data(ticks).join('circle').attr('r', d => r(d)).attr('fill', 'none').attr('stroke', 'var(--cds-chart-grid)');
+    g.append('circle').attr('r', R).attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)').attr('stroke-width', 1.5);
+    [0, 3, 6, 9, 12, 15, 18, 21].forEach(h => {
+      const a = h / 24 * 2 * Math.PI;
+      g.append('line').attr('x2', Math.sin(a) * R).attr('y2', -Math.cos(a) * R).attr('stroke', 'var(--cds-chart-grid)');
+      g.append('text').attr('class', 'lx-tick').attr('x', Math.sin(a) * (R + 16)).attr('y', -Math.cos(a) * (R + 16)).attr('dy', '0.32em').attr('text-anchor', 'middle').text(String(h).padStart(2, '0'));
+    });
+    const arc = d3.arc().innerRadius(0).outerRadius(d => r(d.mean)).cornerRadius(2).startAngle(d => (d.h - 0.45) / 24 * 2 * Math.PI).endAngle(d => (d.h + 0.45) / 24 * 2 * Math.PI);
+    const t = tip(box);
+    g.selectAll('path').data(rows.filter(d => d.n)).join('path').attr('d', arc).attr('fill', d => winColor(winOf(d.h).key)).attr('fill-opacity', 0.85)
+      .on('pointerenter', function (ev, d) {
+        d3.select(this).attr('fill-opacity', 1);
+        t.innerHTML = `<div class="lx-tip-h">${hh(d.h)} SAST · ${winOf(d.h).key}</div><div>Mean activity <b>${d.mean.toFixed(2)}</b> of 7</div><div>${d.n} cycles · ${d.active} with any activity</div>`;
+        t.style.display = 'block';
+        const [px, py] = d3.pointer(ev, box);
+        t.style.left = Math.min(Math.max(0, px + 12), box.clientWidth - t.offsetWidth) + 'px'; t.style.top = Math.max(0, py - 10) + 'px';
+      })
+      .on('pointerleave', function () { d3.select(this).attr('fill-opacity', 0.85); t.style.display = 'none'; });
+    ticks.forEach(v => g.append('text').attr('class', 'lx-tick').attr('x', 4).attr('y', -r(v) - 3).text(d3.format('.1f')(v)));
+    svg.append('text').attr('class', 'lx-tick').attr('x', 4).attr('y', 12).text('Radius: mean activity score');
+  }
+
+  const bmap = { map: null, layer: null, views: {}, view: 'all', fitted: false };
+  const STAR = '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1 L12.4 7.2 L19 7.4 L13.8 11.4 L15.6 18 L10 14.2 L4.4 18 L6.2 11.4 L1 7.4 L7.6 7.2 Z" fill="#17201b"/></svg>';
+  const setPressed = () => document.querySelectorAll('.lx-zoom-btns button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === bmap.view)));
+  function drawBMap(B) {
+    const box = $('bmap');
+    if (typeof L === 'undefined') { empty(box, 'The map library did not load.'); return; }
+    if (!B.fixes.length) {
+      if (bmap.map) { bmap.map.remove(); bmap.map = null; }
+      bmap.fitted = false; empty(box, 'No GPS fix in this period. Indoors the tag hears no satellites.'); return;
+    }
+    if (!bmap.map) {
+      box.innerHTML = '';
+      const map = bmap.map = L.map(box, { zoomSnap: 0.5, scrollWheelZoom: false });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+      L.control.scale({ imperial: false }).addTo(map);
+      const North = L.Control.extend({ options: { position: 'topright' }, onAdd() { const d = L.DomUtil.create('div', 'lx-north'); d.innerHTML = '<svg width="22" height="34" viewBox="-11 -22 22 34" role="img" aria-label="North"><text y="-11" text-anchor="middle">N</text><path d="M0,-7 L7,12 L0,7 L-7,12 Z"/></svg>'; return d; } });
+      new North().addTo(map);
+      bmap.layer = L.layerGroup().addTo(map);
+    } else bmap.map.invalidateSize();
+    const lay = bmap.layer; lay.clearLayers();
+    const crit = cssColor('var(--cds-chart-status-critical)');
+    B.track.slice(1).forEach((b, i) => { const a = B.track[i]; L.polyline([[a.lat, a.lon], [b.lat, b.lon]], { color: cssColor(winColor(b.w)), weight: 2, opacity: 0.6, interactive: false }).addTo(lay); });
+    B.sites.forEach(s => L.circle([s.lat, s.lon], { radius: 150, color: crit, weight: 1, opacity: 0.6, fillColor: crit, fillOpacity: 0.12, interactive: false }).addTo(lay));
+    const rN = d3.scaleSqrt([1, d3.max(B.dots, d => d.n) || 1], [4, 12]);
+    B.dots.slice().sort((a, b) => b.n - a.n).forEach(d => {
+      L.circleMarker([d.lat, d.lon], { radius: rN(d.n), color: '#ffffff', weight: 1, fillColor: cssColor(winColor(d.w)), fillOpacity: 0.85 })
+        .bindTooltip(`<b>${esc(d.w)}</b> · ${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}<br>${d.n} fix${d.n === 1 ? '' : 'es'} here · last ${esc(sast(d.last))} SAST${d.hd.length ? `<br>HDOP avg ${(d3.mean(d.hd)).toFixed(1)}` : ''} · TTF avg ${Math.round(d3.mean(d.tt))} s`, { direction: 'top', offset: [0, -4] })
+        .addTo(lay);
+    });
+    const last = B.fixes[B.fixes.length - 1];
+    L.circleMarker([last.lat, last.lon], { radius: rN(1) + 5, color: '#17201b', weight: 2.5, fill: false, interactive: false }).addTo(lay);
+    B.sites.forEach(s => L.marker([s.lat, s.lon], { icon: L.divIcon({ className: 'lx-star', html: STAR, iconSize: [18, 18], iconAnchor: [9, 9] }), keyboard: false, interactive: false })
+      .bindTooltip(`${esc(s.name)} · ${s.n} fixes`, { permanent: true, direction: 'right', offset: [10, 0], className: 'lx-site-label' }).addTo(lay));
+    const box2 = (p, d) => L.latLngBounds([p.lat - d, p.lon - d * 1.12], [p.lat + d, p.lon + d * 1.12]);
+    bmap.views = { all: L.latLngBounds(B.fixes.map(p => [p.lat, p.lon])).pad(0.05), last: box2(last, 0.0025) };
+    B.sites.forEach((s, i) => { bmap.views[i ? 'b' : 'a'] = box2(s, 0.0025); });
+    $('view-a').hidden = !B.sites.length; $('view-b').hidden = B.sites.length < 2;
+    if (!bmap.views[bmap.view]) bmap.view = 'all';
+    setPressed();
+    if (!bmap.fitted) { bmap.fitted = true; bmap.map.fitBounds(bmap.views[bmap.view], { padding: [24, 24], maxZoom: 17 }); }
+  }
+  document.querySelectorAll('.lx-zoom-btns button').forEach(btn => btn.addEventListener('click', () => {
+    bmap.view = btn.dataset.view; setPressed();
+    const b = bmap.views[bmap.view]; if (bmap.map && b) bmap.map.flyToBounds(b, { padding: [24, 24], maxZoom: 17, duration: 0.6 });
+  }));
+
+  function interpret(B) {
+    const out = [], P = B.fixes, S = B.sites, near = (p, s) => metres(p, s) <= 300;
+    if (!P.length) out.push('No GPS fixes in this period, so there is no movement to show.');
+    else {
+      const night = P.filter(p => p.w === 'Night');
+      if (night.length) out.push(`At night (20:00–05:00) ${pct(night.filter(p => near(p, S[0])).length, night.length)}% of fixes are within 300 m of Site 1${S[1] ? `, and ${pct(night.filter(p => near(p, S[1])).length, night.length)}% near Site 2` : ''}.`);
+      if (S[1]) {
+        const day = P.filter(p => p.w === 'Day');
+        out.push(`Site 2 is ${(metres(S[0], S[1]) / 1000).toFixed(1)} km from Site 1.${day.length ? ` By day (09:00–17:00), ${pct(day.filter(p => near(p, S[0])).length, day.length)}% of fixes are at Site 1 and ${pct(day.filter(p => near(p, S[1])).length, day.length)}% at Site 2.` : ''}`);
+      } else out.push('All fixes lie within 500 m of the busiest spot, so there is one main site.');
+      out.push(`${pct(P.filter(p => !S.some(s => near(p, s))).length, P.length)}% of fixes are more than 300 m from ${S[1] ? 'both sites' : 'Site 1'}.`);
+      let km = 0; for (let i = 1; i < P.length; i++) km += metres(P[i - 1], P[i]) / 1000;
+      if (P.length > 1) out.push(`The straight lines between fixes add up to ${km.toFixed(km < 10 ? 2 : 1)} km (a minimum: the tag moves between fixes too).`);
+    }
+    const aT = d3.sum(B.cycles, c => c.a);
+    if (aT) {
+      const byH = d3.range(24).map(h => ({ h, a: d3.sum(B.cycles.filter(c => c.h === h), c => c.a) }));
+      const top = byH.slice().sort((x, y) => y.a - x.a).filter(r => r.a > 0).slice(0, 2).map(r => hh(r.h));
+      const crep = d3.sum(byH.filter(r => (r.h >= 5 && r.h < 9) || (r.h >= 17 && r.h < 20)), r => r.a);
+      out.push(`Activity is highest around ${top.join(' and ')} SAST. Dawn and dusk hold ${pct(crep, aT)}% of it${pct(crep, aT) >= 40 ? ', close to a dawn/dusk hunting pattern' : ', unlike a dawn/dusk hunting pattern'}.`);
+      out.push(`${pct(B.cycles.filter(c => c.a === 0).length, B.cycles.length)}% of the ${B.cycles.length} cycles reported showed no activity at all.`);
+    } else if (B.cycles.length) out.push(`The tag was still in all ${B.cycles.length} cycles reported (activity score 0).`);
+    else out.push('No activity frames in this period.');
+    if (B.still.length) out.push(`On average the tag was still for ${Math.round(d3.mean(B.still, s => s.v))} minutes of each hour (from ${B.still.length} health frames).`);
+    if (B.searches.length) out.push(`GPS got a fix on ${pct(B.searches.filter(s => s.ok).length, B.searches.length)}% of position-frame searches${P.length ? `, median time to fix ${median(B.searches.filter(s => s.ok).map(s => s.ttf)) ?? '–'} s` : ''}.`);
+    return out;
+  }
+
+  function renderBehaviour(F) {
+    const B = behaviour(F);
+    const rows = d3.range(24).map(h => { const c = B.cycles.filter(x => x.h === h); return { h, n: c.length, active: c.filter(x => x.a > 0).length, mean: c.length ? d3.mean(c, x => x.a) : 0 }; });
+    $('rose-n').textContent = B.cycles.length;
+    drawRose($('ch-rose'), rows);
+    $('bmap-n').textContent = B.fixes.length ? `All ${B.fixes.length}` : 'No';
+    drawBMap(B);
+    $('leg-windows').innerHTML = WINS.map(w => `<div class="lx-leg-row"><span class="lx-leg-dot" style="background:${w.color}"></span><span class="lx-leg-hours">${w.hours}</span><span>${w.key}</span></div>`).join('');
+    $('interp').innerHTML = interpret(B).map(t => `<li>${esc(t)}</li>`).join('');
+    const avgBy = (list, h) => { const s = list.filter(x => x.h === h); return { k: h, v: s.length ? Math.round(d3.mean(s, x => x.v) * 10) / 10 : null, n: s.length }; };
+    hodBars($('ch-turns-hod'), d3.range(24).map(h => avgBy(B.turns, h)), { empty: 'No activity frames in this period.', tip: d => d.n ? [`${d.v} turns per hour on average`, `${d.n} hour${d.n === 1 ? '' : 's'} reported`] : ['No activity frame for this hour'] });
+    hodBars($('ch-still-hod'), d3.range(24).map(h => avgBy(B.still, h)), { max: 60, yfmt: v => v + ' min', empty: 'No health frames in this period.', tip: d => d.n ? [`still ${d.v} of 60 minutes on average`, `${d.n} health frame${d.n === 1 ? '' : 's'}`] : ['No health frame for this hour'] });
+    // time windows
+    const aT = d3.sum(B.cycles, c => c.a);
+    const W = WINS.map(w => {
+      const inW = x => winOf(x.h) === w, c = B.cycles.filter(inW), tu = B.turns.filter(inW), st = B.still.filter(inW);
+      return { w, cycles: c.length, mean: c.length ? d3.mean(c, x => x.a) : null, sum: d3.sum(c, x => x.a), turns: tu.length ? d3.mean(tu, x => x.v) : null, still: st.length ? d3.mean(st, x => x.v) : null, fixes: B.fixes.filter(p => p.w === w.key).length };
+    });
+    const share = r => aT ? Math.round(r.sum / aT * 1000) / 10 : 0;
+    const day = W.find(r => r.w.key === 'Day'), crep = W.filter(r => r.w.key === 'Morning' || r.w.key === 'Dusk');
+    $('win-take').textContent = aT ? `${share(day)}% of the activity falls in the day window (09:00–17:00) and ${Math.round(crep.reduce((s, r) => s + share(r), 0) * 10) / 10}% at dawn and dusk.` : B.cycles.length ? 'No activity in this period: every cycle reported a score of 0.' : 'No activity frames in this period.';
+    const f1 = v => v === null ? '–' : v.toFixed(1);
+    $('tbl-windows').innerHTML = '<thead><tr><th>Window</th><th class="lx-hide-narrow">Hours (SAST)</th><th class="lx-num">Cycles</th><th class="lx-num">Mean activity</th><th class="lx-num">Share</th><th class="lx-num lx-hide-narrow">Turns / h</th><th class="lx-num lx-hide-narrow">Still min / h</th><th class="lx-num">Fixes</th><th style="width:22%">&nbsp;</th></tr></thead><tbody>' +
+      W.map(r => `<tr><td><span class="lx-leg-dot" style="display:inline-block;margin-right:6px;background:${r.w.color}"></span>${esc(r.w.key)}</td><td class="lx-hide-narrow">${esc(r.w.hours)}</td><td class="lx-num">${r.cycles}</td><td class="lx-num">${f1(r.mean)}</td><td class="lx-num">${share(r).toFixed(1)}%</td><td class="lx-num lx-hide-narrow">${f1(r.turns)}</td><td class="lx-num lx-hide-narrow">${r.still === null ? '–' : Math.round(r.still)}</td><td class="lx-num">${r.fixes}</td><td><div class="lx-bar" style="width:${Math.max(1, share(r))}%;background:${r.w.color}"></div></td></tr>`).join('') + '</tbody>';
+    $('tbl-locs').innerHTML = B.locs.length ? '<thead><tr><th>Grid cell</th><th class="lx-num">Fixes</th><th class="lx-hide-narrow">First seen</th><th>Last seen</th><th class="lx-num lx-hide-narrow">Mean lat</th><th class="lx-num lx-hide-narrow">Mean lon</th></tr></thead><tbody>' +
+      B.locs.map(l => { const s = B.sites.find(x => x.cell === l.cell); return `<tr><td>${esc(l.cell)}${s ? ` <span style="color:var(--color-fg-muted)">· ${s.name}</span>` : ''}</td><td class="lx-num">${l.n}</td><td class="lx-hide-narrow">${esc(sast(l.first))}</td><td>${esc(sast(l.last))}</td><td class="lx-num lx-hide-narrow">${l.lat.toFixed(5)}</td><td class="lx-num lx-hide-narrow">${l.lon.toFixed(5)}</td></tr>`; }).join('') + '</tbody>'
+      : '<tbody><tr><td>No GPS fixes in this period.</td></tr></tbody>';
   }
   function renderLink(F) {
     const R = F.filter(f => f.rssi !== null);
@@ -341,7 +770,7 @@
     const F = inRange();
     document.querySelectorAll('[data-range]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.range === range)));
     $('range-empty').hidden = F.length > 0;
-    renderKpis(F); renderHealth(F); renderActivity(F); renderGps(F); renderLink(F); renderLog(F); status();
+    renderKpis(F); renderPower(); renderHealth(F); renderActivity(F); renderBehaviour(F); renderGps(F); renderLink(F); renderLog(F); status();
   }
   function apply(payload, bundle) {
     meta = payload.meta; lastIv = bundle.iv; all = prepare(payload.frames || []);
@@ -358,7 +787,7 @@
     apply(payload, lastBundle);
   }
   document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => {
-    range = b.dataset.range; try { localStorage.setItem('custos-tag2-range', range); } catch (e) {}
+    range = b.dataset.range; bmap.fitted = false; try { localStorage.setItem('custos-tag2-range', range); } catch (e) {}
     if (meta) render();
   }));
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (meta) render(); }, 200); });
